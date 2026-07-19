@@ -1,0 +1,49 @@
+{
+  "name": "sf-observer-order-of-execution",
+  "displayName": "Applying DevOps Observability to Salesforce Metadata",
+  "description": "IDE-native, pre-deployment observability for Salesforce record-triggered execution flow.",
+  "version": "0.0.1",
+  "private": true,
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "vscode": "^1.125.0",
+    "node": ">=22"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "contributes": {
+    "commands": []
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --check . --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "format:write": "prettier --write . --ignore-path .prettierignore --ignore-path .git/info/exclude",
+    "test": "vitest run --passWithNoTests",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage --passWithNoTests"
+  },
+  "dependencies": {
+    "@salesforce/core": "8.32.4",
+    "commander": "15.0.0",
+    "fast-xml-parser": "5.10.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.1.1",
+    "@types/vscode": "1.125.0",
+    "@vitest/coverage-v8": "4.1.10",
+    "@vscode/test-electron": "3.0.0",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.1",
+    "eslint": "10.7.0",
+    "globals": "17.7.0",
+    "prettier": "3.9.5",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.64.0",
+    "vitest": "4.1.10"
+  }
+}

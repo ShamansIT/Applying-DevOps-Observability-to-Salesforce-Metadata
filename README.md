@@ -2,10 +2,10 @@
 
 IDE-native, pre-deployment observability for Salesforce record-triggered execution flow.
 
-Prototype `Applying DevOps Observability to Salesforce Metadata` reconstructs record-triggered 
-execution flow for given Salesforce object and trigger event 
-**before deployment and without executing anything in the org**. It orders participants 
-at **phase level** of the Salesforce Order of Execution and attaches explicit evidence 
+Prototype `Applying DevOps Observability to Salesforce Metadata` reconstructs record-triggered
+execution flow for given Salesforce object and trigger event
+**before deployment and without executing anything in the org**. It orders participants
+at **phase level** of the Salesforce Order of Execution and attaches explicit evidence
 and confidence state to every node and edge.
 
 Project is a research prototype (MSc). It ships as two things that share one analysis core:
@@ -31,7 +31,7 @@ Every node and edge carries one of: `confirmed`, `inferred`, `unresolved`, `excl
 
 ## Architecture
 
-Orchestrator -> Ingestion -> Analysis Engine -> Persistence -> Output + separate Evaluation Harness. 
+Orchestrator -> Ingestion -> Analysis Engine -> Persistence -> Output + separate Evaluation Harness.
 Analysis core is a pure TypeScript library (no `vscode` imports) so extension and the harness run the same engine.
 
 ```
