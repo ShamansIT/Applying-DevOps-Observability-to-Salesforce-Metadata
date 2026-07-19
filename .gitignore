@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+*.vsix
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.vitest/
+
+# Harness run outputs (summary CSVs are committed explicitly)
+/results/*
+!/results/summary/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode-test/
+
+# Local env
+.env
+.env.*
