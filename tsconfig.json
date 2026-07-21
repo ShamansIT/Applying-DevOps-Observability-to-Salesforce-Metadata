@@ -21,6 +21,6 @@
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true
   },
-  "include": ["src", "harness", "test"],
+  "include": ["src", "test"],
   "exclude": ["node_modules", "dist", "out", "coverage"]
 }

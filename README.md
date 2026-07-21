@@ -8,11 +8,11 @@ execution flow for given Salesforce object and trigger event
 at **phase level** of the Salesforce Order of Execution and attaches explicit evidence
 and confidence state to every node and edge.
 
-Project is a research prototype (MSc). It ships as two things that share one analysis core:
+Project is a research prototype (MSc). It is a single prototype built around one analysis core:
 
-- **VS Code extension** that renders phase-grouped, progressively-discovered flow map, and
-- **evaluation harness** (CLI) that measures coverage, precision, recall, phase-ordering
-  accuracy and latency against frozen ground truth.
+- a **VS Code extension** that renders a phase-grouped, progressively-discovered flow map, and
+- **structured exports** (JSON, run metadata, version snapshot) that the prototype produces for
+  developer review and that later feed evaluation procedure.
 
 ## Principles
 
@@ -31,23 +31,21 @@ Every node and edge carries one of: `confirmed`, `inferred`, `unresolved`, `excl
 
 ## Architecture
 
-Orchestrator -> Ingestion -> Analysis Engine -> Persistence -> Output + separate Evaluation Harness.
-Analysis core is a pure TypeScript library (no `vscode` imports) so extension and the harness run the same engine.
+One prototype workflow: **VS Code extension -> metadata ingestion -> TypeScript analysis core ->
+persistence / structured export -> developer-facing output**. The analysis core is a pure
+TypeScript library (no `vscode` imports), so its structured outputs are reproducible and can be
+reused by evaluation procedure.
 
 ```
 src/core          domain types, phase model, scoring, discovery cascade (pure TS)
-src/ingestion      org snapshot, Tooling client, dependency API, Flow/Apex parsers
-src/extension      activation, commands, webview host, progressive rendering
-src/persistence    workspace cache, exporters (JSON, report, SVG)
-harness/           evaluation CLI (snapshot | run | compare | metrics | calibrate | ttfaf | versions)
-fixtures/          org snapshots, scenarios, frozen ground-truth JSONs
-config/            weights, thresholds, latency budgets
-docs/              ADRs, RUNBOOK, VERSIONS, ASSUMPTIONS, module notes
+src/ingestion     org snapshot, Tooling client, MetadataComponentDependency client, Flow/Apex parsers
+src/extension     activation, commands, webview host, progressive rendering
+src/persistence   workspace cache, graph cache, run log, exporters (JSON, Markdown, SVG)
+fixtures/         org snapshots, scenarios, Ground Truth / Expected Execution Maps
+config/           weights, thresholds, latency budgets
+docs/             ADRs, RUNBOOK, VERSIONS, ASSUMPTIONS, module notes
+results/          structured prototype outputs, run metadata, metric CSVs
 ```
-
-## Status
-
-Early scaffolding. See `docs/` for design decisions (ADRs), assumptions and runbook as they land.
 
 ## Org access
 

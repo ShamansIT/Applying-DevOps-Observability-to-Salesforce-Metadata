@@ -11,7 +11,7 @@ out/
 coverage/
 .vitest/
 
-# Harness run outputs (summary CSVs are committed explicitly)
+# Structured prototype outputs / run metadata (summary CSVs are committed explicitly)
 /results/*
 !/results/summary/
 

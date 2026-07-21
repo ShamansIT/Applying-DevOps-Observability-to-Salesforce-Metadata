@@ -28,7 +28,6 @@
   },
   "dependencies": {
     "@salesforce/core": "8.32.4",
-    "commander": "15.0.0",
     "fast-xml-parser": "5.10.1"
   },
   "devDependencies": {

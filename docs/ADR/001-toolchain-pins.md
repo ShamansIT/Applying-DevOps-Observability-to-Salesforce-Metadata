@@ -1,5 +1,7 @@
 # ADR 001 - Toolchain pins
-***
+
+---
+
 Date: 2026-07-19
 
 ## Context
@@ -25,8 +27,8 @@ Pin the toolchain to exact versions and commit `package-lock.json`. `.npmrc` set
 - esbuild 0.28.1 (bundling), Vitest 4.1.10 + `@vitest/coverage-v8` (tests/coverage),
   Prettier 3.9.5 (formatting).
 - `@vscode/test-electron` 3.0.0 (smoke test), `@vscode/vsce` 3.9.2 (packaging).
-- Runtime: `commander` 15.0.0 (CLI), `fast-xml-parser` 5.10.1 (Flow XML), `@salesforce/core`
-  8.32.4 (org access).
+- Runtime: `fast-xml-parser` 5.10.1 (Flow XML), `@salesforce/core` 8.32.4 (org access).
+  (`commander` was dropped once the scaffolded CLI was removed - see ADR 002.)
 - Engines: VS Code `^1.125.0` (`@types/vscode` 1.125.0), Node `>=22`.
 
 TypeScript is configured `strict` with the extra safety flags
