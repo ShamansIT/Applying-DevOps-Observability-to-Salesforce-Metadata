@@ -3,3 +3,4 @@
 // Home of the domain types, release-pinned phase model, confidence states, scoring, risk
 // indicators, and the progressive-discovery cascade.
 export * from './types.js';
+export * from './validate.js';
