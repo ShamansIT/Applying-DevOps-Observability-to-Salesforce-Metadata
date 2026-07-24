@@ -2,8 +2,8 @@
 
 ## Context
 
-Repository layout is documented in the dissertation, An earlier working sketch differed from 
-dissertation in a few module names and in level of detail; this ADR reconciles them 
+Repository layout is documented in the dissertation, An earlier working sketch differed from
+dissertation in a few module names and in level of detail; this ADR reconciles them
 so code and the write-up agree.
 
 Same sketch also framed evaluation as a separate implemented `Evaluation Harness` (a CLI, a
