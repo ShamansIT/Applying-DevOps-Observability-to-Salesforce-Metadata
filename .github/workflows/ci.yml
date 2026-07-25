@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: No TODO(agent) left in src
+        run: |
+          if grep -rn "TODO(agent)" src; then
+            echo "Found TODO(agent) markers in src - resolve them before merging."
+            exit 1
+          fi
+
+      # Packaging the .vsix and the coverage / latency-budget gates join CI once the extension has
+      # a real entry point and build (later milestone); there is nothing to package yet.
