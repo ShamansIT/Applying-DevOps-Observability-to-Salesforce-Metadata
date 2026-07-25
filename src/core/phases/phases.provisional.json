@@ -1,0 +1,21 @@
+{
+  "apiVersion": null,
+  "provisional": true,
+  "note": "Skeleton of the Salesforce Order of Execution reconstructed from design memory. NOT yet verified line-by-line against release-pinned official documentation. The exact API version to pin, the source URLs, the access date, and the verification are open items in docs/ASSUMPTIONS.md. Rename to phases.v<NN>.json and set provisional=false once pinned.",
+  "source": [],
+  "accessed": null,
+  "phases": [
+    { "key": "system_validation", "label": "System validation", "sync": true },
+    { "key": "before_save_flows", "label": "Before-save record-triggered flows", "sync": true },
+    { "key": "before_triggers", "label": "Apex before triggers", "sync": true },
+    { "key": "custom_validation", "label": "Custom validation rules", "sync": true },
+    { "key": "duplicate_rules", "label": "Duplicate rules", "sync": true },
+    { "key": "after_triggers", "label": "Apex after triggers", "sync": true },
+    { "key": "workflow_rules", "label": "Workflow rules", "sync": true, "legacy": true },
+    { "key": "after_save_flows", "label": "After-save record-triggered flows", "sync": true },
+    { "key": "rollup_summary", "label": "Roll-up summary recalculation", "sync": true },
+    { "key": "criteria_sharing", "label": "Criteria-based sharing evaluation", "sync": true },
+    { "key": "commit", "label": "DML commit", "sync": true },
+    { "key": "post_commit", "label": "Post-commit logic", "sync": false }
+  ]
+}

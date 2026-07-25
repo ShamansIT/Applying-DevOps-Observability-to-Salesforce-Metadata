@@ -4,3 +4,4 @@
 // indicators, and the progressive-discovery cascade.
 export * from './types.js';
 export * from './validate.js';
+export * from './phases/phaseModel.js';
