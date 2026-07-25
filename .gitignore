@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 
+# Salesforce CLI local state
+.sfdx/
+.sf/
+
 # Build output
 dist/
 out/

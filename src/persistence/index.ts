@@ -1,3 +1,2 @@
-// Persistence - workspace cache, graph cache, the run log, and the exporters
-// (JSON, Markdown, SVG).
+// Persistence - workspace cache, graph cache, run log, exporters (JSON, Markdown, SVG).
 export {};

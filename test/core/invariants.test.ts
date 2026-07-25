@@ -22,7 +22,7 @@ describe('invariant 1: model cannot express intra-phase ordering', () => {
   // Real enforcement is at type level, checked by `tsc` (typecheck / CI). If any
   // ordering-ish key were added to ExecNode or ExecEdge, `NoForbiddenKeys<T>` would resolve to
   // `false` and `= true` assignments below would fail to compile. esbuild strips types, so at
-  // Vitest runtime these just pass - runtime key check afterwards documents the same intent.
+  // Vitest runtime these just pass - runtime key check afterwards documents same intent.
   type ForbiddenOrderKey =
     | 'order'
     | 'ordering'
@@ -43,14 +43,14 @@ describe('invariant 1: model cannot express intra-phase ordering', () => {
 
   type NoForbiddenKeys<T> = Extract<keyof T, ForbiddenOrderKey> extends never ? true : false;
 
-  it('the type surface exposes no ordering field (type-level, enforced by tsc)', () => {
+  it('type surface exposes no ordering field (type-level, enforced by tsc)', () => {
     const noOrderOnNode: NoForbiddenKeys<ExecNode> = true;
     const noOrderOnEdge: NoForbiddenKeys<ExecEdge> = true;
     expect(noOrderOnNode).toBe(true);
     expect(noOrderOnEdge).toBe(true);
   });
 
-  it('a constructed node carries none of the forbidden ordering keys', () => {
+  it('constructed node carries none of forbidden ordering keys', () => {
     const forbidden = [
       'order',
       'orderIndex',
@@ -73,14 +73,14 @@ describe('invariant 1: model cannot express intra-phase ordering', () => {
 });
 
 describe('invariant 2: excludeReason is present exactly when excluded', () => {
-  it('accepts an excluded node with a reason', () => {
+  it('accepts excluded node with reason', () => {
     const node: ExecNode = { ...base, state: 'excluded', excludeReason: 'async post-commit' };
     expect(() => {
       assertValidExecNode(node);
     }).not.toThrow();
   });
 
-  it('accepts a non-excluded node without a reason', () => {
+  it('accepts non-excluded node without reason', () => {
     for (const state of ['confirmed', 'inferred', 'unresolved'] as const) {
       const node: ExecNode = { ...base, state };
       expect(() => {
@@ -89,14 +89,14 @@ describe('invariant 2: excludeReason is present exactly when excluded', () => {
     }
   });
 
-  it('rejects an excluded node with no reason', () => {
+  it('rejects excluded node with no reason', () => {
     const node: ExecNode = { ...base, state: 'excluded' };
     expect(() => {
       assertValidExecNode(node);
     }).toThrow(/excluded.*excludeReason/i);
   });
 
-  it('rejects an excluded node with a blank reason', () => {
+  it('rejects excluded node with blank reason', () => {
     for (const excludeReason of ['', '   ']) {
       const node: ExecNode = { ...base, state: 'excluded', excludeReason };
       expect(() => {
@@ -105,7 +105,7 @@ describe('invariant 2: excludeReason is present exactly when excluded', () => {
     }
   });
 
-  it('rejects a non-excluded node that carries a reason', () => {
+  it('rejects non-excluded node that carries reason', () => {
     const node: ExecNode = { ...base, state: 'confirmed', excludeReason: 'should not be here' };
     expect(() => {
       assertValidExecNode(node);

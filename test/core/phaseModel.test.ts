@@ -17,15 +17,17 @@ const EXPECTED_ORDER = [
   'post_commit',
 ];
 
-describe('release-pinned phase model (provisional)', () => {
+describe('release-pinned phase model (API 67.0)', () => {
   const model = loadPhaseModel();
 
-  it('is marked provisional and unpinned until verified', () => {
-    expect(model.provisional).toBe(true);
-    expect(model.apiVersion).toBeNull();
+  it('is pinned to API 67.0 and verified (not provisional)', () => {
+    expect(model.provisional).toBe(false);
+    expect(model.apiVersion).toBe('67.0');
+    expect(model.source.length).toBeGreaterThan(0);
+    expect(model.accessed).not.toBeNull();
   });
 
-  it('has the twelve canonical phases in the pinned order', () => {
+  it('has twelve canonical phases in pinned order', () => {
     expect(phaseKeys(model)).toEqual(EXPECTED_ORDER);
   });
 
@@ -42,7 +44,7 @@ describe('release-pinned phase model (provisional)', () => {
     expect(phaseIndex(model, 'commit')).toBeLessThan(phaseIndex(model, 'post_commit'));
   });
 
-  it('returns -1 for an unknown phase key', () => {
+  it('returns -1 for unknown phase key', () => {
     expect(phaseIndex(model, 'not_a_phase')).toBe(-1);
   });
 });
@@ -62,14 +64,14 @@ describe('validatePhaseModel', () => {
   it('rejects duplicate phase keys', () => {
     const duplicate: PhaseModel = {
       ...good,
-      phases: [...good.phases, { key: 'a', label: 'A again', sync: true }],
+      phases: [...good.phases, { key: 'a', label: 'again', sync: true }],
     };
     expect(() => {
       validatePhaseModel(duplicate);
     }).toThrow(/duplicate/i);
   });
 
-  it('rejects an empty phase list', () => {
+  it('rejects empty phase list', () => {
     expect(() => {
       validatePhaseModel({ ...good, phases: [] });
     }).toThrow(/no phases/i);

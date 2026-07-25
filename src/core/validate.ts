@@ -1,13 +1,8 @@
 import type { ExecNode } from './types.js';
 
-/**
- * Enforce `ExecNode` invariant from DESIGN 2.3: `excludeReason` is present exactly when
- * `state` is `excluded`. Throws on either mismatch - `excluded` node without reason, or
- * non-`excluded` node that carries one.
- *
- * Reason counts as present only when it is non-empty, non-whitespace string, so
- * `excluded` node cannot pass with blank reason.
- */
+// excludeReason and state must agree: reason set iff excluded. Throws on either mismatch - excluded
+// node without reason, or non-excluded node carrying one. Blank or whitespace reason counts as
+// missing, so excluded node cannot slip through empty.
 export function assertValidExecNode(node: ExecNode): void {
   const hasReason = typeof node.excludeReason === 'string' && node.excludeReason.trim().length > 0;
   const isExcluded = node.state === 'excluded';

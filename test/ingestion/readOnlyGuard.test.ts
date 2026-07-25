@@ -30,7 +30,7 @@ describe('assertReadOnlySoql', () => {
     }).toThrow(/chained/i);
   });
 
-  it('rejects an empty query', () => {
+  it('rejects empty query', () => {
     expect(() => {
       assertReadOnlySoql('   ');
     }).toThrow(/only SELECT/i);

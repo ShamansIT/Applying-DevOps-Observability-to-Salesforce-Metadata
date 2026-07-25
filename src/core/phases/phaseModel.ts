@@ -1,38 +1,29 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-/** One phase of Salesforce Order of Execution */
+/** One phase of Salesforce Order of Execution. */
 export interface Phase {
   key: string;
   label: string;
-  /** `false` for asynchronous phases */
-  sync: boolean;
-  /** `true` for legacy automations still present in orgs */
-  legacy?: boolean;
+  sync: boolean; // false for asynchronous phases
+  legacy?: boolean; // true for legacy automations still found in orgs
 }
 
-/**
- * Release-pinned phase model, loaded from `phases.v<NN>.json`
- */
+// Pinned phase model, loaded from phases.v<NN>.json. Data, not code constants: release change
+// means new file and new run, never silent classifier change.
 export interface PhaseModel {
-  /** Pinned Salesforce API version, or `null` while provisional */
-  apiVersion: string | null;
-  /** `true` until phase list is verified line-by-line against pinned docs */
-  provisional: boolean;
-  /** Source URLs for Order-of-Execution documentation model was pinned against */
-  source: string[];
-  /** Date the sources were accessed, or `null` while provisional */
-  accessed: string | null;
+  apiVersion: string | null; // pinned Salesforce API version, or null while provisional
+  provisional: boolean; // true until phase list is verified against pinned docs
+  source: string[]; // documentation URLs model was pinned against
+  accessed: string | null; // date sources were accessed, or null while provisional
   note?: string;
   phases: Phase[];
 }
 
-const DEFAULT_PHASE_FILE = 'phases.provisional.json';
+const DEFAULT_PHASE_FILE = 'phases.v67.json';
 
-/**
- * Load phase model from the `phases/` directory (default: provisional file). Reads file
- * next to this module sopinned `phases.v<NN>.json` can be swapped in without code changes.
- */
+// Load phase model from phases/ folder (default: pinned file). Reads file next to this module, so
+// pinned phases.v<NN>.json swaps in without code changes.
 export function loadPhaseModel(fileName: string = DEFAULT_PHASE_FILE): PhaseModel {
   const path = fileURLToPath(new URL(`./${fileName}`, import.meta.url));
   const model = JSON.parse(readFileSync(path, 'utf8')) as PhaseModel;
@@ -40,7 +31,7 @@ export function loadPhaseModel(fileName: string = DEFAULT_PHASE_FILE): PhaseMode
   return model;
 }
 
-/** Structural checks independent of any release: non-empty, and phase keys unique. */
+// Structural checks, release-independent: non-empty, and keys unique.
 export function validatePhaseModel(model: PhaseModel): void {
   if (model.phases.length === 0) {
     throw new Error('phase model has no phases');
@@ -52,12 +43,12 @@ export function validatePhaseModel(model: PhaseModel): void {
   }
 }
 
-/** Ordered phase keys - between-phase order platform guarantees */
+// Ordered phase keys - between-phase order platform guarantees.
 export function phaseKeys(model: PhaseModel): string[] {
   return model.phases.map((p) => p.key);
 }
 
-/** Index of a phase key in pinned order, or -1 if key is not in model */
+// Index of key in pinned order, or -1 when key is not in model.
 export function phaseIndex(model: PhaseModel, key: string): number {
   return model.phases.findIndex((p) => p.key === key);
 }

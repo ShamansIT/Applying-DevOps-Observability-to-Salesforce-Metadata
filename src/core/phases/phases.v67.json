@@ -1,9 +1,11 @@
 {
-  "apiVersion": null,
-  "provisional": true,
-  "note": "Skeleton of the Salesforce Order of Execution reconstructed from design memory. NOT yet verified line-by-line against release-pinned official documentation. The exact API version to pin, the source URLs, the access date, and the verification are open items in docs/ASSUMPTIONS.md. Rename to phases.v<NN>.json and set provisional=false once pinned.",
-  "source": [],
-  "accessed": null,
+  "apiVersion": "67.0",
+  "provisional": false,
+  "source": [
+    "https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm"
+  ],
+  "accessed": "2026-07-25",
+  "note": "Verified line-by-line against official Salesforce Order of Execution documentation for API 67.0 (Summer '26) on 2026-07-25. Twelve canonical phases and their order match official steps. Object-scoped rule families (assignment, auto-response, escalation, entitlement) and Process Builder / workflow-launched flows are represented as nodes on their governing phase, not as separate ordered phases. See ADR 004.",
   "phases": [
     { "key": "system_validation", "label": "System validation", "sync": true },
     { "key": "before_save_flows", "label": "Before-save record-triggered flows", "sync": true },

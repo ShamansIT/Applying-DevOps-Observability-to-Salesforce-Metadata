@@ -1,9 +1,9 @@
 # Version snapshot
 
-Recorded snapshot of the pinned toolchain and platform versions (feeds dissertation Table 4.2).
-This is recorded file, not the output of command. Source of truth for pins is
-`package.json` and committed `package-lock.json`. This file restates them for the write-up.
-Reproduce runtime rows with `node -v` and `sf version`.
+Recorded snapshot of pinned toolchain and platform versions (feeds dissertation Table 4.2). This is
+recorded file, not command output. Source of truth for pins is `package.json` and committed
+`package-lock.json`; this file restates them for write-up. Reproduce runtime rows with `node -v` and
+`sf version`.
 
 ## Engines
 
@@ -14,10 +14,10 @@ Reproduce runtime rows with `node -v` and `sf version`.
 
 ## Salesforce
 
-| Component   | Pin      | Notes                                                     |
-| ----------- | -------- | --------------------------------------------------------- |
-| API version | unpinned | provisional phase model; open item A1 in `ASSUMPTIONS.md` |
-| `sf` CLI    | unpinned | delegated to the user's install; recorded at freeze (A3)  |
+| Component   | Pin      | Notes                                                  |
+| ----------- | -------- | ------------------------------------------------------ |
+| API version | `67.0`   | Summer '26; phase model verified against OoE docs      |
+| `sf` CLI    | unpinned | delegated to user's install; recorded at design freeze |
 
 ## Build and test toolchain
 
@@ -46,6 +46,7 @@ Reproduce runtime rows with `node -v` and `sf version`.
 
 ## Open items
 
-- **API version** and **`sf` CLI** are unpinned - see `ASSUMPTIONS.md` (A1, A3). Snapshot is
-  not authoritative for Table 4.2 until they are pinned at the design freeze.
+- `sf` CLI version is unpinned - delegated to user's install, recorded at design freeze.
+- API version is pinned to `67.0`; phase model is verified against official Order-of-Execution docs
+  - see ADR 004.
 - TypeScript is held at 6.0.3 (not 7.x) for `typescript-eslint` compatibility - see ADR 001.

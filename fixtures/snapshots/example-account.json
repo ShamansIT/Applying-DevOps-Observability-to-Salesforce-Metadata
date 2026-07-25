@@ -1,0 +1,33 @@
+{
+  "meta": {
+    "apiVersion": null,
+    "capturedAt": "2026-01-01T00:00:00.000Z",
+    "source": "fixture",
+    "orgAlias": "example",
+    "toolVersion": "0.0.1"
+  },
+  "components": [
+    {
+      "type": "ApexTrigger",
+      "fullName": "AccountTrigger",
+      "object": "Account",
+      "attributes": { "events": ["before update", "after update"], "status": "Active" }
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_Before_Save",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordBeforeSave",
+        "status": "Active"
+      }
+    },
+    {
+      "type": "ValidationRule",
+      "fullName": "Account.Require_Industry",
+      "object": "Account",
+      "attributes": { "active": true }
+    }
+  ]
+}
