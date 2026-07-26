@@ -1,14 +1,13 @@
 # Cascade
 
-Cascade is how tool turns one captured snapshot into phase-ordered execution skeleton for one
-`(object, event)` pair. It runs as ordered layers; each layer adds to picture and can run on its own,
-so skeleton renders early while later layers keep enriching. All of it is pure TypeScript with no
-`vscode` import, so same core drives both extension and evaluation.
+Cascade is how tool turns one captured snapshot into phase-ordered execution flow and dependency
+graph for one `(object, event)` pair. It runs as ordered layers; each layer adds to picture and can
+run on its own, so skeleton renders early while later layers keep enriching. All of it is pure
+TypeScript with no `vscode` import, so same core drives both extension and evaluation.
 
 ## Layers
 
-Two layers land here; later layers (reference extraction, graph assembly, optional expansion) arrive
-after.
+Five layers. Each returns increment; L5 is optional and off by default.
 
 - **L1 inventory (`inventory.ts`).** Build candidate set for chosen object and event. It reads
   snapshot components bound to object and keeps those that could fire for event: record-triggered
@@ -20,56 +19,92 @@ after.
 - **L2 phase classification (`classify.ts`).** Assign each item its phase from pinned model. Mapping
   is keyed off node kind, so release change swaps `phases.v<NN>.json` without touching classifier.
   Result is set of `ExecNode`, one per participant per phase.
+- **L3 reference extraction (`extract.ts`).** Parse node bodies and read direct dependency records,
+  then emit `dependency` edges and enrich node evidence. Flow record references become edges to their
+  objects, subflow calls to their flows, explicit trigger order to `config_link` evidence; Apex
+  symbol references become edges to classes. Dynamic or unrecoverable targets come back as low-weight
+  `heuristic` signals that resolve to `unresolved`, with reason in evidence detail. Parse failure
+  never drops node - it is captured as evidence, since missed component is most expensive
+  error for reviewer.
+- **L4 graph assembly (`assemble.ts`).** Merge and dedupe nodes and edges by stable id, score each
+  from its evidence, resolve state, and freeze output order. Scope exclusion wins over score.
+- **L5 optional expansion (`expand.ts`).** Expand referenced targets (subflows, transitive flows) to
+  configured depth, behind flag, with cycle guard keyed on stable id. Depth 0 is no-op.
+
+## Scoring and state
+
+Score is sum of weights of present evidence, clamped to `[0, 1]`; thresholds turn score into state
+(`score.ts`, `weights.ts`). Weights and thresholds live in `config/weights.json` - data, not code -
+so calibration replaces them without touching scorer. State resolution order is exact: scope
+exclusion first (`excludeReason` set means `excluded` whatever score), then `confirmed` at or
+above confirmed threshold, `inferred` at or above inferred threshold, else `unresolved`. Node in
+asynchronous phase is out of scope and is excluded with reason.
+
+## Risk indicators
+
+`risk/indicators.ts` computes seven review-attention signals after assembly: fan-in / fan-out,
+cross-phase coupling, unresolved references, low-confidence cluster, deferred / post-commit
+reachability, recursion / re-entry hint, automation density per object. Each carries its character -
+`deterministic` or `heuristic` - so UI never mixes them and fakes precision method does not
+claim. Thresholds come from scenario config with defaults.
 
 ## Reconstruct - orchestrator
 
-`reconstruct.ts` runs layers in contract order: L1 inventory, emit skeleton, L2 classify, emit
-again. `emit` hook is what makes progressive render possible - caller renders backbone after L1 and
-fills phases after L2. Output is one `ReconstructResult`: phase-ordered `Skeleton`, flat node list
-sorted by stable id, and `AnalysisRun` meta.
+`reconstruct.ts` runs layers in contract order and emits skeleton after L1, L2, and final assembly,
+so caller renders backbone early and fills phases as scoring lands. Output is one `ReconstructResult`:
+phase-ordered `Skeleton`, flat node list, dependency edges, seven risk indicators, and `AnalysisRun`
+meta. Source body lookup, dependency records, depth limit, weights, and risk thresholds are injected
+options, all defaulted, so run is offline and testable with no network.
 
-Determinism is load-bearing. Nodes and skeleton are byte-identical across runs: phases follow pinned
-order, and nodes inside phase are sorted by id only (platform guarantees order between phases, not
-inside one). Per-layer timings are wall-clock and vary run to run, so they live in `meta.timings`
-and stay out of graph. Clock is injected, so tests pin it and compare graph output directly.
+Determinism is load-bearing. Nodes, edges, skeleton, and risk are byte-identical across runs: phases
+follow pinned order, nodes and edges sort by stable id, evidence is deduped and sorted. Per-layer
+timings are wall-clock and vary run to run, so they live in `meta.timings` and stay out of graph.
+Clock is injected, so tests pin it and compare graph output directly.
 
-## Two modelling decisions
+## Degrade matrix
 
-Recorded in ADR 005; summary here.
+Fallbacks are data plus flags, not silent branches, so degraded run is never compared to full run
+without flag. When dependency query is truncated, caller passes `truncated`, `meta.truncated` is
+set, `meta.degraded` names `dependency_truncated`, and every edge backed by dependency record
+degrades to `unresolved` - tool reports incompleteness rather than optimistic picture. Offline run
+with no source or dependency records is normal, not degraded: nodes still classify and score from
+what evidence exists, edges are simply fewer.
 
-- **Trigger firing in both timings becomes two nodes.** Apex trigger active on before and after for
-  same event runs in two phases (`before_triggers`, `after_triggers`). Each phase gets own node, id
-  suffixed by phase key so both stay unique, label carries timing. Single node cannot express two
-  phases, so split is honest shape.
-- **Skeleton state is interim.** Classified node carries state `inferred` with score 0. Real score
-  needs calibrated weights, and state resolution runs after graph assembly, so skeleton does not
-  pretend to confidence it has not computed yet. Inactive participant is different: it will not fire,
-  so it is marked `excluded` with reason `inactive` right away.
+## Modelling decisions
+
+Recorded in ADR 005 and ADR 006; summary here.
+
+- **Trigger firing in both timings becomes two nodes** - one per phase, id suffixed by phase key.
+- **Skeleton state is interim until assembly** - classify emits `inferred`; L4 scores and resolves.
+- **Scoring defaults are provisional** - `config/weights.json` holds placeholders until calibration.
+- **Dynamic constructs are `heuristic`** - lowest weight, so they resolve to `unresolved` honestly.
 
 ## Webview
 
 `extension/webview/renderSkeleton.ts` turns skeleton into HTML. It is pure and deterministic - no
 `vscode`, no timestamp, no nonce - so it is unit-tested off-screen and always yields same markup for
-same skeleton. Phases render in pinned order as collapsible groups; each node shows state badge,
-kind, and label; excluded nodes are struck through; legacy and async are flagged. Extension host
-(`extension/index.ts`) is thin glue: pick snapshot, object, and event, run `reconstruct`, and set
-webview HTML on each emission.
+same skeleton. Extension host (`extension/index.ts`) is thin glue: pick snapshot, object, and event,
+run `reconstruct`, and set webview HTML on each emission. Graph and risk surfaces arrive with output
+work.
 
 ## Not here yet
 
-- Reference and evidence extraction (Flow XML, Apex headers, dependency records), graph assembly,
-  and optional depth expansion arrive with later layers.
-- Scoring and threshold-based state resolution wait on calibrated `config/weights.json`; skeleton
-  score stays 0 until then, never hand-set in code.
-- Packaged extension must ship `phases.v<NN>.json` next to bundle and resolve it there; source
-  loader uses `import.meta.url`, which needs asset copy and loader wiring at package step.
+- Streaming graph and risk into webview, and JSON / Markdown / SVG export, arrive with output work.
+- Packaged extension must ship `phases.v<NN>.json` and `config/weights.json` next to bundle and
+  resolve them there; source loaders use `import.meta.url`, which needs asset copy at package step.
+- Calibration replaces provisional weights and thresholds on pilot subset.
 
 ## Files
 
-| File                        | Responsibility                                       |
-| --------------------------- | ---------------------------------------------------- |
-| `inventory.ts`              | L1 candidate set for `(object, event)`, offline.     |
-| `classify.ts`               | L2 phase assignment from pinned model.               |
-| `reconstruct.ts`            | Orchestrate layers, emit skeleton, record timings.   |
-| `webview/renderSkeleton.ts` | Deterministic skeleton-to-HTML render (no `vscode`). |
-| `extension/index.ts`        | Activation and command; wire cascade to webview.     |
+| File                        | Responsibility                                              |
+| --------------------------- | ----------------------------------------------------------- |
+| `inventory.ts`              | L1 candidate set for `(object, event)`, offline.            |
+| `classify.ts`               | L2 phase assignment from pinned model.                      |
+| `extract.ts`                | L3 body parse and dependency records to edges.              |
+| `expand.ts`                 | L5 depth-bounded expansion with cycle guard.                |
+| `assemble.ts`               | L4 merge, dedupe, score, resolve state, freeze order.       |
+| `reconstruct.ts`            | Orchestrate layers, emit skeleton, degrade, record timings. |
+| `../score/`                 | Weight model loader plus score and state resolution.        |
+| `../risk/indicators.ts`     | Seven review-attention signals, deterministic vs heuristic. |
+| `../parse/`                 | Flow XML and Apex header parsers.                           |
+| `webview/renderSkeleton.ts` | Deterministic skeleton-to-HTML render (no `vscode`).        |

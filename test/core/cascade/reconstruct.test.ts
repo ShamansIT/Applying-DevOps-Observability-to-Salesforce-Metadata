@@ -47,13 +47,13 @@ function stepClock(): () => number {
 }
 
 describe('reconstruct (cascade L1+L2)', () => {
-  it('emits skeleton after L1 then after L2', () => {
+  it('emits skeleton after L1, L2 and final assembly', () => {
     const emissions: CascadeEmission[] = [];
     reconstruct(SNAPSHOT, TARGET, MODEL, {
       emit: (e) => emissions.push(e),
       clock: stepClock(),
     });
-    expect(emissions.map((e) => e.layer)).toEqual(['L1', 'L2']);
+    expect(emissions.map((e) => e.layer)).toEqual(['L1', 'L2', 'L4']);
     expect(emissions[0]?.skeleton.nodeCount).toBe(0); // L1 backbone carries no nodes yet
     expect(emissions[0]?.skeleton.candidateCount).toBe(3);
     expect(emissions[1]?.skeleton.nodeCount).toBeGreaterThan(0);
@@ -88,9 +88,10 @@ describe('reconstruct (cascade L1+L2)', () => {
 
   it('records per-layer timings and empty degrade list in meta', () => {
     const { meta } = reconstruct(SNAPSHOT, TARGET, MODEL, { clock: stepClock() });
-    expect(meta.timings.map((t) => t.layer)).toEqual(['L1', 'L2']);
+    expect(meta.timings.map((t) => t.layer)).toEqual(['L1', 'L2', 'L3', 'L4']);
     expect(meta.timings.every((t) => t.ms >= 0)).toBe(true);
     expect(meta.degraded).toEqual([]);
+    expect(meta.truncated).toBe(false);
     expect(meta.snapshotApiVersion).toBe('67.0');
     expect(meta.phaseModelApiVersion).toBe('67.0');
   });

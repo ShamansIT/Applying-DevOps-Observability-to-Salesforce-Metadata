@@ -9,6 +9,15 @@ export interface MetadataComponent {
   attributes: Record<string, unknown>; // raw captured fields
 }
 
+// One direct dependency record from MetadataComponentDependency. Direct edges only; transitive
+// links need expansion, not one query.
+export interface MetadataDependencyRecord {
+  componentName: string;
+  componentType: string;
+  refName: string;
+  refType: string;
+}
+
 // Where snapshot came from. Only alias is kept, never credentials.
 export type SnapshotSource = 'org' | 'dx-project' | 'fixture';
 
@@ -20,6 +29,7 @@ export interface SnapshotMeta {
   source: SnapshotSource;
   orgAlias?: string; // alias only, never credentials
   toolVersion: string;
+  truncated?: boolean; // set when a capture query hit its row cap and result is incomplete
 }
 
 // Captured org state, and unit of reproducibility. Analysis runs against one frozen snapshot, so
@@ -27,6 +37,7 @@ export interface SnapshotMeta {
 export interface OrgSnapshot {
   meta: SnapshotMeta;
   components: MetadataComponent[];
+  dependencies?: MetadataDependencyRecord[]; // direct dependency records, when captured
 }
 
 // Read and validate snapshot from JSON file. No network.

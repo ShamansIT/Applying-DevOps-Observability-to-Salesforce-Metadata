@@ -25,6 +25,9 @@ Two kinds of source, both feeding same component shape:
   - `toolingClient.ts` runs Tooling API queries and describes. It does not know how to connect on
     its own: it is handed runner, so tests inject fake and touch no network. Every query still
     passes read-only guard first.
+  - `metadataComponentDependencyClient.ts` reads direct dependency records over same injectable
+    runner. Direct edges only - transitive links need expansion, not one query. Row cap is 2000; on
+    cap result is marked truncated, and analysis degrades affected claims to `unresolved`.
   - `salesforceConnection.ts` builds real runner over `@salesforce/core` connection. It reuses
     whatever auth user's `sf` CLI already holds and stores no credentials. Thin adapter, exercised
     against real org rather than unit tests.
@@ -46,19 +49,17 @@ into stable order, and stamps `meta`. Two rules keep snapshots deterministic:
 it. Written then loaded, snapshot equals original - which is what lets captured org replay
 offline.
 
-## Not here yet
-
-- Deep parsing of Flow XML and Apex headers belongs to analysis core, and comes later; ingestion
-  only inventories for now.
-- Tooling queries that list object's automations arrive with inventory work.
+Deep parsing of Flow XML and Apex headers lives in analysis core (`src/core/parse`), not here -
+ingestion inventories and hands over raw records; core reads bodies through injected resolver.
 
 ## Files
 
-| File                      | Responsibility                                       |
-| ------------------------- | ---------------------------------------------------- |
-| `readOnlyGuard.ts`        | Reject anything that is not read-only query or call. |
-| `orgSnapshot.ts`          | Snapshot types, offline loader, validation.          |
-| `dxProjectReader.ts`      | Inventory local DX project (offline).                |
-| `toolingClient.ts`        | Guarded, injectable Tooling API client.              |
-| `salesforceConnection.ts` | Live `@salesforce/core` runner (auth via `sf` CLI).  |
-| `captureSnapshot.ts`      | Merge, dedupe, stamp, persist snapshot.              |
+| File                                   | Responsibility                                          |
+| -------------------------------------- | ------------------------------------------------------- |
+| `readOnlyGuard.ts`                     | Reject anything that is not read-only query or call.    |
+| `orgSnapshot.ts`                       | Snapshot types, dependency records, loader, validation. |
+| `dxProjectReader.ts`                   | Inventory local DX project (offline).                   |
+| `toolingClient.ts`                     | Guarded, injectable Tooling API client.                 |
+| `metadataComponentDependencyClient.ts` | Guarded dependency reader with row cap and truncation.  |
+| `salesforceConnection.ts`              | Live `@salesforce/core` runner (auth via `sf` CLI).     |
+| `captureSnapshot.ts`                   | Merge, dedupe, stamp, persist snapshot.                 |

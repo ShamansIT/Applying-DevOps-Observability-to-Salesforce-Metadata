@@ -2,4 +2,7 @@
 // renders after L1 while later layers keep enriching.
 export * from './inventory.js';
 export * from './classify.js';
+export * from './extract.js';
+export * from './expand.js';
+export * from './assemble.js';
 export * from './reconstruct.js';
