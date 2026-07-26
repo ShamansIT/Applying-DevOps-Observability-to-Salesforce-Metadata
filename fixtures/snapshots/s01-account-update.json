@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "apiVersion": "67.0",
+    "capturedAt": "2026-01-01T00:00:00.000Z",
+    "source": "fixture",
+    "orgAlias": "s01",
+    "toolVersion": "0.0.1"
+  },
+  "components": [
+    {
+      "type": "Flow",
+      "fullName": "Account_Set_Defaults",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordBeforeSave",
+        "status": "Active"
+      }
+    },
+    {
+      "type": "ApexTrigger",
+      "fullName": "AccountTrigger",
+      "object": "Account",
+      "attributes": { "events": ["before update", "after update"], "status": "Active" }
+    },
+    {
+      "type": "ValidationRule",
+      "fullName": "Account.Require_Industry",
+      "object": "Account",
+      "attributes": { "active": true }
+    },
+    {
+      "type": "DuplicateRule",
+      "fullName": "Account.Standard_Account_Duplicate",
+      "object": "Account",
+      "attributes": { "active": true }
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_Notify_Owner",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordAfterSave",
+        "status": "Active"
+      }
+    },
+    {
+      "type": "WorkflowRule",
+      "fullName": "Account.Legacy_Rating",
+      "object": "Account",
+      "attributes": { "active": true }
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_Legacy_PB",
+      "object": "Account",
+      "attributes": { "processType": "Workflow", "status": "Active" }
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_Retired",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordBeforeSave",
+        "status": "Draft"
+      }
+    }
+  ]
+}
