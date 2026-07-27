@@ -81,17 +81,18 @@ Recorded in ADR 005 and ADR 006; summary here.
 
 ## Webview
 
-`extension/webview/renderSkeleton.ts` turns skeleton into HTML. It is pure and deterministic - no
-`vscode`, no timestamp, no nonce - so it is unit-tested off-screen and always yields same markup for
-same skeleton. Extension host (`extension/index.ts`) is thin glue: pick snapshot, object, and event,
-run `reconstruct`, and set webview HTML on each emission. Graph and risk surfaces arrive with output
-work.
+Two pure renderers turn output into HTML - no `vscode`, no timestamp, no nonce - so both are
+unit-tested off-screen and yield same markup for same input. `renderSkeleton.ts` draws phase backbone
+for progressive first paint after L1; `renderReport.ts` draws full report: phase tree with state
+badges and evidence popovers, state and type filters, dependency-edge table, seven risk indicators
+split by character, and embedded SVG figure. Extension host (`extension/index.ts`) is thin glue: pick
+snapshot, object, and event, render skeleton on first emission, then report, and expose JSON /
+Markdown / SVG export commands. Exporters live in `src/persistence` (see persistence.md).
 
 ## Not here yet
 
-- Streaming graph and risk into webview, and JSON / Markdown / SVG export, arrive with output work.
-- Packaged extension must ship `phases.v<NN>.json` and `config/weights.json` next to bundle and
-  resolve them there; source loaders use `import.meta.url`, which needs asset copy at package step.
+- Live per-layer streaming into persistent webview shell (current host swaps HTML per emission,
+  which is instant since analysis is sub-millisecond).
 - Calibration replaces provisional weights and thresholds on pilot subset.
 
 ## Files

@@ -76,7 +76,9 @@ export function renderSkeleton(skeleton: Skeleton): string {
   return [
     '<!doctype html>',
     '<html lang="en">',
-    '<head><meta charset="utf-8"><title>Execution flow</title>',
+    '<head><meta charset="utf-8">',
+    '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\';">',
+    '<title>Execution flow</title>',
     `<style>${STYLE}</style>`,
     '</head>',
     '<body>',
