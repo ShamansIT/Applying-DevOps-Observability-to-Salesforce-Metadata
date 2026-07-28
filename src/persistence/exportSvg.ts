@@ -12,13 +12,19 @@ const NODE_H = 24;
 const GAP = 6;
 const INDENT = 24;
 
-// State to stroke and fill. Chosen for legibility on white, so figure prints cleanly.
-const STATE_COLOR: Record<ConfidenceState, { stroke: string; fill: string }> = {
-  confirmed: { stroke: '#1a7f37', fill: '#dafbe1' },
-  inferred: { stroke: '#9a6700', fill: '#fff8c5' },
-  unresolved: { stroke: '#656d76', fill: '#eaeef2' },
-  excluded: { stroke: '#cf222e', fill: '#ffebe9' },
+// State to stripe colour. Boxes stay white with thin border and one coloured left stripe, so
+// figure reads as plain ruled report rather than coloured blocks.
+const STATE_STRIPE: Record<ConfidenceState, string> = {
+  confirmed: '#186a3a',
+  inferred: '#8a5800',
+  unresolved: '#5b6673',
+  excluded: '#a01b0f',
 };
+
+const BOX_STROKE = '#c4ccd4';
+const RULE = '#9aa4af';
+const INK = '#15181c';
+const MUTED = '#5b6673';
 
 function escapeXml(text: string): string {
   return text
@@ -29,12 +35,14 @@ function escapeXml(text: string): string {
 }
 
 function nodeBox(node: ExecNode, y: number): string {
-  const color = STATE_COLOR[node.state];
+  const stripe = STATE_STRIPE[node.state];
+  const bx = PAD + INDENT;
+  const bw = WIDTH - PAD * 2 - INDENT;
   const label = `${node.label} [${node.type}] ${node.state}`;
   return [
-    `<rect x="${String(PAD + INDENT)}" y="${String(y)}" width="${String(WIDTH - PAD * 2 - INDENT)}" height="${String(NODE_H)}" rx="4" `,
-    `fill="${color.fill}" stroke="${color.stroke}" />`,
-    `<text x="${String(PAD + INDENT + 8)}" y="${String(y + 16)}" font-size="12" fill="#1f2328">${escapeXml(label)}</text>`,
+    `<rect x="${String(bx)}" y="${String(y)}" width="${String(bw)}" height="${String(NODE_H)}" fill="#ffffff" stroke="${BOX_STROKE}" />`,
+    `<rect x="${String(bx)}" y="${String(y)}" width="4" height="${String(NODE_H)}" fill="${stripe}" />`,
+    `<text x="${String(bx + 12)}" y="${String(y + 16)}" font-size="12" fill="${INK}">${escapeXml(label)}</text>`,
   ].join('');
 }
 
@@ -45,8 +53,9 @@ export function exportSvg(result: ReconstructResult): string {
   let y = PAD;
 
   parts.push(
-    `<text x="${String(PAD)}" y="${String(y + 14)}" font-size="15" font-weight="600" fill="#1f2328">` +
+    `<text x="${String(PAD)}" y="${String(y + 14)}" font-size="15" font-weight="600" fill="${INK}">` +
       `${escapeXml(result.meta.object)} - ${escapeXml(result.meta.event)}</text>`,
+    `<line x1="${String(PAD)}" y1="${String(y + 22)}" x2="${String(WIDTH - PAD)}" y2="${String(y + 22)}" stroke="${RULE}" />`,
   );
   y += PHASE_H + GAP;
 
@@ -56,7 +65,8 @@ export function exportSvg(result: ReconstructResult): string {
     }
     const flags = group.legacy ? ' (legacy)' : group.sync ? '' : ' (async)';
     parts.push(
-      `<text x="${String(PAD)}" y="${String(y + 16)}" font-size="13" font-weight="600" fill="#57606a">` +
+      `<text x="${String(PAD)}" y="${String(y + 16)}" font-size="11" font-weight="700" fill="${MUTED}" ` +
+        `letter-spacing="0.5" style="text-transform:uppercase">` +
         `${String(index + 1)}. ${escapeXml(group.label)}${flags}</text>`,
     );
     y += PHASE_H;

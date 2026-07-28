@@ -52,20 +52,26 @@ function renderPhase(group: PhaseGroup): string {
   ].join('');
 }
 
+// Austere first-paint backbone: zero radius, hairline rules, square state marks - matches report.
 const STYLE = [
-  'body{font-family:var(--vscode-font-family,sans-serif);font-size:13px;margin:0;padding:12px}',
-  'h1{font-size:14px;margin:0 0 4px}',
-  '.meta{opacity:.7;margin:0 0 12px}',
-  '.phase{border-left:3px solid var(--vscode-panel-border,#8884);margin:0 0 6px;padding-left:8px}',
-  'summary{cursor:pointer;font-weight:600}',
-  '.count{opacity:.6;font-weight:400}',
-  'ul{list-style:none;margin:4px 0 8px;padding:0}',
-  '.node{display:flex;gap:8px;align-items:center;padding:2px 0}',
-  '.badge{font-size:11px;border-radius:3px;padding:0 6px;background:var(--vscode-badge-background,#8884)}',
-  '.type{opacity:.7;font-family:monospace}',
-  '.legacy,.async{font-size:11px;opacity:.6;font-style:italic}',
-  '.empty{opacity:.5;margin:4px 0 8px}',
-  '.state-excluded{opacity:.55;text-decoration:line-through}',
+  ':root{--ink:#15181c;--body:#2a3038;--muted:#606a76;--rule:#d3d8de;--rule-strong:#9aa4af;--ground:#ffffff;--confirmed:#186a3a;--inferred:#8a5800;--unresolved:#5b6673;--excluded:#a01b0f}',
+  '*{box-sizing:border-box}',
+  'body{font-family:var(--vscode-font-family,"Segoe UI",system-ui,sans-serif);font-size:13px;line-height:1.45;margin:0;padding:18px;color:var(--body);background:var(--ground)}',
+  'h1{font-size:15px;font-weight:600;color:var(--ink);margin:0 0 2px}',
+  '.meta{font-family:ui-monospace,Consolas,monospace;font-size:12px;color:var(--muted);margin:0 0 14px}',
+  '.phase{border-left:2px solid var(--rule-strong);margin:0;padding-left:10px}',
+  'summary{cursor:pointer;font-weight:600;color:var(--ink);padding:3px 0;border-bottom:1px solid var(--rule)}',
+  '.count{color:var(--muted);font-weight:400;font-family:ui-monospace,Consolas,monospace}',
+  'ul{list-style:none;margin:0 0 10px;padding:0}',
+  '.node{display:flex;gap:10px;align-items:baseline;padding:3px 0;border-bottom:1px solid var(--rule)}',
+  '.badge{position:relative;padding-left:15px;flex:none;width:84px;font-family:ui-monospace,Consolas,monospace;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}',
+  '.badge::before{content:"";position:absolute;left:0;top:2px;width:9px;height:9px;background:var(--unresolved)}',
+  '.state-confirmed .badge::before{background:var(--confirmed)}.state-inferred .badge::before{background:var(--inferred)}.state-excluded .badge::before{background:var(--excluded)}',
+  '.type{flex:none;width:118px;font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--muted)}',
+  '.name{color:var(--ink)}',
+  '.legacy,.async{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}',
+  '.empty{color:var(--muted);font-size:12px;margin:2px 0 8px}',
+  '.state-excluded .name{text-decoration:line-through;color:var(--muted)}',
 ].join('');
 
 // Full HTML document for one skeleton. Header restates subject and counts; phases render in pinned

@@ -39,6 +39,7 @@ src/core          domain types, phase model, scoring, discovery cascade (pure TS
 src/ingestion     org snapshot, Tooling client, MetadataComponentDependency client, Flow/Apex parsers
 src/extension     activation, commands, webview host, progressive rendering
 src/persistence   workspace cache, graph cache, run log, exporters (JSON, Markdown, SVG)
+src/evaluation    Chapter 5 procedure: scenarios, ground truth, comparison, metrics, calibration
 fixtures/         org snapshots, scenarios, Ground Truth / Expected Execution Maps
 config/           weights, thresholds, latency budgets
 docs/             ADRs, RUNBOOK, VERSIONS, module notes

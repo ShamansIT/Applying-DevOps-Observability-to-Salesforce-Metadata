@@ -1,0 +1,9 @@
+{
+  "id": "S01",
+  "object": "Account",
+  "event": "update",
+  "cluster": "mixed",
+  "depthLimit": 0,
+  "snapshot": "../snapshots/s01-eval.json",
+  "notes": "Account update pilot: Apex trigger split before/after with a dependency-record class reference and one dynamic SOQL that a human knows targets Contact; before-save and after-save flows, after-save creating a Task; one validation rule. Exercises confirmed dependency edges, an inferred flow edge, and a deliberately unresolvable dynamic reference the tool should miss rather than guess."
+}

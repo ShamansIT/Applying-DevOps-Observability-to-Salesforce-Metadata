@@ -1,0 +1,54 @@
+{
+  "meta": {
+    "apiVersion": "67.0",
+    "capturedAt": "2026-01-01T00:00:00.000Z",
+    "source": "fixture",
+    "orgAlias": "s01-eval",
+    "toolVersion": "0.0.1"
+  },
+  "components": [
+    {
+      "type": "ApexTrigger",
+      "fullName": "AccountTrigger",
+      "object": "Account",
+      "attributes": { "events": ["before update", "after update"], "status": "Active" },
+      "source": "trigger AccountTrigger on Account (before update, after update) { AccountService.applyDefaults(Trigger.new); String soql = 'SELECT Id FROM Contact WHERE AccountId IN :ids'; List<SObject> rows = Database.query(soql); }"
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_Before_Save",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordBeforeSave",
+        "status": "Active"
+      },
+      "source": "<?xml version=\"1.0\"?><Flow xmlns=\"http://soap.sforce.com/2006/04/metadata\"><processType>AutoLaunchedFlow</processType><start><object>Account</object><triggerType>RecordBeforeSave</triggerType></start></Flow>"
+    },
+    {
+      "type": "Flow",
+      "fullName": "Account_After_Save",
+      "object": "Account",
+      "attributes": {
+        "processType": "AutoLaunchedFlow",
+        "triggerType": "RecordAfterSave",
+        "status": "Active"
+      },
+      "source": "<?xml version=\"1.0\"?><Flow xmlns=\"http://soap.sforce.com/2006/04/metadata\"><processType>AutoLaunchedFlow</processType><start><object>Account</object><triggerType>RecordAfterSave</triggerType></start><recordCreates><name>Create_Task</name><object>Task</object></recordCreates></Flow>"
+    },
+    {
+      "type": "ValidationRule",
+      "fullName": "Account.Require_Industry",
+      "object": "Account",
+      "attributes": { "active": true }
+    }
+  ],
+  "dependencies": [
+    {
+      "componentName": "AccountTrigger",
+      "componentType": "ApexTrigger",
+      "refName": "AccountService",
+      "refType": "ApexClass"
+    }
+  ]
+}

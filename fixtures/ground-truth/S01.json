@@ -1,0 +1,29 @@
+{
+  "id": "S01",
+  "edges": [
+    {
+      "from": "apex_trigger:Account:AccountTrigger:before_triggers",
+      "to": "apex_class:AccountService",
+      "phase": "before_triggers",
+      "expected": "confirmed"
+    },
+    {
+      "from": "apex_trigger:Account:AccountTrigger:after_triggers",
+      "to": "apex_class:AccountService",
+      "phase": "after_triggers",
+      "expected": "confirmed"
+    },
+    {
+      "from": "flow_after:Account:Account_After_Save",
+      "to": "object:Task",
+      "phase": "after_save_flows",
+      "expected": "inferred"
+    },
+    {
+      "from": "apex_trigger:Account:AccountTrigger:after_triggers",
+      "to": "object:Contact",
+      "phase": "after_triggers",
+      "expected": "inferred"
+    }
+  ]
+}

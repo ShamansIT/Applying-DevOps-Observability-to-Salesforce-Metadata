@@ -7,6 +7,7 @@ export interface MetadataComponent {
   object?: string; // target sObject, when component binds to one
   namespace?: string; // set for managed-package components
   attributes: Record<string, unknown>; // raw captured fields
+  source?: string; // raw body (Flow XML, Apex), when captured, so offline run can parse it
 }
 
 // One direct dependency record from MetadataComponentDependency. Direct edges only; transitive
