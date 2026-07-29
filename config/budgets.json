@@ -1,0 +1,6 @@
+{
+  "provisional": true,
+  "note": "Latency budgets in milliseconds, enforced as CI regression gates. Provisional until recalibrated on pilot; values are generous headroom over in-memory fixture runs so gate catches regressions, not noise.",
+  "l1P50Ms": 3000,
+  "fullP95Ms": 30000
+}

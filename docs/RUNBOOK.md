@@ -51,6 +51,52 @@ byte-identical files across runs.
 - Dynamic Apex SOQL surfaced as `unresolved` edge with reason.
 - Process Builder writing back to Account trips recursion / re-entry risk indicator.
 
+## Tests and gates
+
+Run full suite with coverage and regression gates:
+
+```
+npm run test:coverage
+```
+
+This runs every unit test plus determinism gate (double-run deep-equal across offline, full,
+expanded and degraded paths) and latency-budget gate (L1 P50 and full-cascade P95 against
+`config/budgets.json`). Coverage thresholds in `vitest.config.ts` fail run on drop. CI runs same
+command, so regression blocks merge.
+
+## e2e smoke
+
+```
+npm run test:e2e
+```
+
+Downloads pinned VS Code, loads this repository as extension, and checks its commands are registered.
+Needs display; on headless machine or CI wrap with `xvfb-run -a`.
+
+## Reproduce pilot comparison
+
+S01 pilot runs snapshot -> run -> comparison and reports metrics:
+
+```
+npx vitest run test/evaluation/pilot.test.ts
+```
+
+It loads `fixtures/scenarios/S01.json`, drives same core IDE drives against S01 snapshot, compares
+against hashed ground truth in `fixtures/ground-truth/S01.json`, and asserts precision 1, recall 0.75
+(dynamic reference is missed, not guessed), and phase-ordering accuracy 1.
+
+## Verification checklist
+
+Reproducible from this document alone:
+
+- [ ] `npm ci` installs cleanly.
+- [ ] `npm run lint`, `npm run typecheck`, `npm run test:coverage` all pass.
+- [ ] `npm run build:extension` produces `dist/extension/index.cjs` and `dist/assets/`.
+- [ ] `F5` opens extension host; reconstruct command renders S01 skeleton then report.
+- [ ] JSON, Markdown and SVG export commands each write file.
+- [ ] `npx vitest run test/evaluation/pilot.test.ts` reproduces pilot comparison.
+- [ ] `npm run test:e2e` (with display) passes command-registration smoke.
+
 ## Notes
 
 - Headless batch generation of exports for many scenarios arrives with evaluation procedure, which

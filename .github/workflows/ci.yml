@@ -25,8 +25,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
+      # Coverage thresholds (vitest.config.ts) plus the determinism and latency-budget tests are
+      # regression gates: a coverage drop or a blown budget fails this step.
+      - name: Test with coverage and budget gates
+        run: npm run test:coverage
+
+      - name: Build extension bundle
+        run: npm run build:extension
 
       - name: No TODO(agent) left in src
         run: |
@@ -35,5 +40,20 @@ jobs:
             exit 1
           fi
 
-      # Packaging the .vsix and the coverage / latency-budget gates join CI once the extension has
-      # a real entry point and build (later milestone); there is nothing to package yet.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # VS Code needs a display; xvfb provides a headless one. Downloads a pinned VS Code, loads the
+      # extension, and checks its commands are registered.
+      - name: e2e smoke (VS Code)
+        run: xvfb-run -a npm run test:e2e
