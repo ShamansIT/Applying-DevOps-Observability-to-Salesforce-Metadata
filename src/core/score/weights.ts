@@ -21,12 +21,17 @@ const EVIDENCE_TYPES: EvidenceType[] = [
   'heuristic',
 ];
 
-// config/ sits at repository root, three levels up from this module.
-const DEFAULT_WEIGHTS_URL = new URL('../../../config/weights.json', import.meta.url);
+// config/ sits at repository root, three levels up from this module. Resolved lazily inside loader,
+// not at module load, so importing this file never touches import.meta - a bundle that has no
+// import.meta (packaged extension) can import it without evaluating a broken URL.
+function defaultWeightsUrl(): URL {
+  return new URL('../../../config/weights.json', import.meta.url);
+}
 
 // Load weight model (default: pinned config file). Validates before returning.
-export function loadWeights(url: URL = DEFAULT_WEIGHTS_URL): WeightModel {
-  const model = JSON.parse(readFileSync(fileURLToPath(url), 'utf8')) as WeightModel;
+export function loadWeights(url?: URL): WeightModel {
+  const target = url ?? defaultWeightsUrl();
+  const model = JSON.parse(readFileSync(fileURLToPath(target), 'utf8')) as WeightModel;
   validateWeights(model);
   return model;
 }

@@ -27,13 +27,16 @@ export interface AggregateReport {
 }
 
 const METRIC_KEYS = [
+  'nodePrecision',
+  'nodeRecall',
   'precision',
   'recall',
   'f1',
-  'coverage',
+  'orderedPathCoverage',
+  'phaseAccuracy',
+  'boundaryAccuracy',
   'noise',
   'falseOmissionRate',
-  'phaseOrderingAccuracy',
 ] as const;
 
 type MetricKey = (typeof METRIC_KEYS)[number];
@@ -77,29 +80,47 @@ export function aggregate(results: ScenarioResult[]): AggregateReport {
   return { overall: aggregateOf(results), byCluster };
 }
 
-// Per-scenario CSV: one row per scenario, columns shaped for chapter-5 detail table.
+// Per-scenario CSV: one row per scenario, columns shaped for the detail table.
 export function toScenarioCsv(results: ScenarioResult[]): string {
   const header = [
     'scenario',
     'cluster',
-    'expected',
-    'claimed',
-    'tp',
-    'fp',
-    'fn',
-    'precision',
-    'recall',
-    'f1',
-    'coverage',
+    'expected_nodes',
+    'claimed_nodes',
+    'node_tp',
+    'node_precision',
+    'node_recall',
+    'phase_accuracy',
+    'expected_edges',
+    'claimed_edges',
+    'edge_tp',
+    'edge_fp',
+    'edge_fn',
+    'edge_precision',
+    'edge_recall',
+    'edge_f1',
+    'ordered_path_coverage',
     'noise',
     'false_omission_rate',
-    'phase_ordering_accuracy',
+    'boundary_total',
+    'boundary_accuracy',
+    'ambiguous_excluded',
+    'dist_confirmed',
+    'dist_inferred',
+    'dist_unresolved',
+    'dist_excluded',
   ];
   const rows = results.map((result) => {
     const m = result.metrics;
     return [
       m.scenarioId,
       result.cluster,
+      m.expectedNodes,
+      m.claimedNodes,
+      m.nodeTruePositives,
+      m.nodePrecision,
+      m.nodeRecall,
+      m.phaseAccuracy,
       m.expected,
       m.claimed,
       m.truePositives,
@@ -108,10 +129,16 @@ export function toScenarioCsv(results: ScenarioResult[]): string {
       m.precision,
       m.recall,
       m.f1,
-      m.coverage,
+      m.orderedPathCoverage,
       m.noise,
       m.falseOmissionRate,
-      m.phaseOrderingAccuracy,
+      m.boundaryTotal,
+      m.boundaryAccuracy,
+      m.ambiguousExcluded,
+      m.distribution.confirmed,
+      m.distribution.inferred,
+      m.distribution.unresolved,
+      m.distribution.excluded,
     ].join(',');
   });
   return [header.join(','), ...rows, ''].join('\n');

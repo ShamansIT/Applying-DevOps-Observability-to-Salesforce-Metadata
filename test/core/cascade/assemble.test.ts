@@ -3,7 +3,7 @@ import { assemble } from '../../../src/core/cascade/assemble.js';
 import { loadPhaseModel } from '../../../src/core/phases/phaseModel.js';
 import { loadWeights } from '../../../src/core/score/index.js';
 import { assertValidExecNode } from '../../../src/core/validate.js';
-import type { ExecEdge, ExecNode } from '../../../src/core/types.js';
+import type { ConfidenceState, ExecEdge, ExecNode } from '../../../src/core/types.js';
 
 const MODEL = loadPhaseModel();
 const WEIGHTS = loadWeights();
@@ -12,6 +12,7 @@ function node(
   id: string,
   phase: string,
   evidence: ExecNode['evidence'],
+  state: ConfidenceState = 'confirmed',
   excludeReason?: string,
 ): ExecNode {
   return {
@@ -22,24 +23,29 @@ function node(
     object: 'Account',
     phase,
     active: true,
-    state: 'inferred',
+    state,
     score: 0,
     evidence,
     ...(excludeReason ? { excludeReason } : {}),
   };
 }
 
-function edge(from: string, to: string, evidence: ExecEdge['evidence']): ExecEdge {
-  return { from, to, kind: 'dependency', state: 'unresolved', score: 0, evidence };
+function edge(
+  from: string,
+  to: string,
+  evidence: ExecEdge['evidence'],
+  state: ConfidenceState = 'confirmed',
+): ExecEdge {
+  return { from, to, kind: 'dependency', state, score: 0, evidence };
 }
 
 describe('assemble (L4)', () => {
-  it('scores nodes from evidence and resolves state by threshold', () => {
+  it('keeps the assigned state and falls to unresolved when evidence is absent', () => {
     const { nodes } = assemble({
       nodes: [
-        node('a', 'after_save_flows', [{ type: 'dependency_api', ref: 'a' }]), // 0.9 -> confirmed
-        node('b', 'after_save_flows', [{ type: 'config_link', ref: 'b' }]), // 0.5 -> inferred
-        node('c', 'after_save_flows', [{ type: 'heuristic', ref: 'c' }]), // 0.2 -> unresolved
+        node('a', 'after_save_flows', [{ type: 'dependency_api', ref: 'a' }], 'confirmed'),
+        node('b', 'after_save_flows', [{ type: 'config_link', ref: 'b' }], 'inferred'),
+        node('c', 'after_save_flows', [], 'confirmed'), // no evidence -> unresolved
       ],
       edges: [],
       weights: WEIGHTS,
@@ -51,9 +57,28 @@ describe('assemble (L4)', () => {
     expect(byId['c']).toBe('unresolved');
   });
 
-  it('keeps scope exclusion over any score', () => {
+  it('fills a ranking score from evidence without deriving state from it', () => {
     const { nodes } = assemble({
-      nodes: [node('x', 'after_save_flows', [{ type: 'dependency_api', ref: 'x' }], 'inactive')],
+      nodes: [node('a', 'after_save_flows', [{ type: 'config_link', ref: 'a' }], 'confirmed')],
+      edges: [],
+      weights: WEIGHTS,
+      phaseModel: MODEL,
+    });
+    expect(nodes[0]?.score).toBeCloseTo(WEIGHTS.evidenceWeights.config_link);
+    expect(nodes[0]?.state).toBe('confirmed'); // score below confirmed threshold, state still confirmed
+  });
+
+  it('keeps scope exclusion over evidence', () => {
+    const { nodes } = assemble({
+      nodes: [
+        node(
+          'x',
+          'after_save_flows',
+          [{ type: 'dependency_api', ref: 'x' }],
+          'excluded',
+          'inactive',
+        ),
+      ],
       edges: [],
       weights: WEIGHTS,
       phaseModel: MODEL,
@@ -64,7 +89,9 @@ describe('assemble (L4)', () => {
 
   it('excludes nodes in an asynchronous phase', () => {
     const { nodes } = assemble({
-      nodes: [node('async', 'post_commit', [{ type: 'dependency_api', ref: 'async' }])],
+      nodes: [
+        node('async', 'post_commit', [{ type: 'dependency_api', ref: 'async' }], 'confirmed'),
+      ],
       edges: [],
       weights: WEIGHTS,
       phaseModel: MODEL,
@@ -76,33 +103,39 @@ describe('assemble (L4)', () => {
     }).not.toThrow();
   });
 
-  it('merges duplicate nodes and edges by id, unioning evidence', () => {
+  it('merges duplicates by id, unioning evidence and keeping the strongest state', () => {
     const { nodes, edges } = assemble({
       nodes: [
-        node('a', 'after_save_flows', [{ type: 'flow_xml_static', ref: 'a' }]),
-        node('a', 'after_save_flows', [{ type: 'dependency_api', ref: 'a' }]),
+        node('a', 'after_save_flows', [{ type: 'flow_xml_static', ref: 'a' }], 'inferred'),
+        node('a', 'after_save_flows', [{ type: 'dependency_api', ref: 'a' }], 'confirmed'),
       ],
       edges: [
-        edge('a', 'object:Contact', [{ type: 'flow_xml_static', ref: 'a' }]),
-        edge('a', 'object:Contact', [{ type: 'dependency_api', ref: 'a' }]),
+        edge('a', 'object:Contact', [{ type: 'apex_static', ref: 'a' }], 'inferred'),
+        edge('a', 'object:Contact', [{ type: 'dependency_api', ref: 'a' }], 'confirmed'),
       ],
       weights: WEIGHTS,
       phaseModel: MODEL,
     });
     expect(nodes).toHaveLength(1);
     expect(nodes[0]?.evidence).toHaveLength(2);
+    expect(nodes[0]?.state).toBe('confirmed');
     expect(edges).toHaveLength(1);
-    expect(edges[0]?.state).toBe('confirmed'); // 0.6 + 0.9 clamped -> confirmed
+    expect(edges[0]?.state).toBe('confirmed');
   });
 
   it('freezes node, edge and evidence order deterministically', () => {
     const input = {
       nodes: [
-        node('b', 'after_save_flows', [
-          { type: 'config_link', ref: 'b' },
-          { type: 'apex_static', ref: 'b' },
-        ]),
-        node('a', 'after_save_flows', [{ type: 'flow_xml_static', ref: 'a' }]),
+        node(
+          'b',
+          'after_save_flows',
+          [
+            { type: 'config_link', ref: 'b' },
+            { type: 'apex_static', ref: 'b' },
+          ],
+          'confirmed',
+        ),
+        node('a', 'after_save_flows', [{ type: 'flow_xml_static', ref: 'a' }], 'confirmed'),
       ],
       edges: [edge('b', 'z', []), edge('a', 'y', [])],
       weights: WEIGHTS,

@@ -1,6 +1,6 @@
 {
   "provisional": true,
-  "note": "Pre-calibration default weights and thresholds. Values are data, not code, so calibration procedure on pilot subset (S01..S06) replaces them without touching scorer. Held provisional until that search runs. See ADR 006.",
+  "note": "Provisional ranking weights and thresholds. Values are data, not code. Confidence state is rule-based, so these affect ranking only and never a reported metric; ranking calibration may tune them on held-out validation scenarios.",
   "evidenceWeights": {
     "dependency_api": 0.9,
     "object_binding": 0.7,

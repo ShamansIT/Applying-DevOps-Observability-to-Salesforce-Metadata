@@ -47,6 +47,5 @@ recorded file, not command output. Source of truth for pins is `package.json` an
 ## Open items
 
 - `sf` CLI version is unpinned - delegated to user's install, recorded at design freeze.
-- API version is pinned to `67.0`; phase model is verified against official Order-of-Execution docs
-  - see ADR 004.
-- TypeScript is held at 6.0.3 (not 7.x) for `typescript-eslint` compatibility - see ADR 001.
+- API version is pinned to `67.0`; phase model is verified against official Order-of-Execution docs.
+- TypeScript is held at 6.0.3 (not 7.x) for `typescript-eslint` compatibility.

@@ -1,14 +1,15 @@
 // L3 reference extraction. Third cascade layer: parse node bodies and read direct dependency
-// records, then emit dependency edges and enrich node evidence. Dynamic or unrecoverable targets
-// come back as low-weight signals that resolve to `unresolved` downstream, with reason in evidence
-// detail. Parse failure never drops node - missed component is most expensive error for
-// reviewer. Edges leave here with provisional score 0; L4 scores and resolves state. Pure; source
-// and dependency records are injected, so no network and no filesystem coupling.
+// records, then emit dependency edges and enrich node evidence. State is assigned here by rule that
+// creates edge: direct dependency record and explicit parsed reference are `confirmed`,
+// coarse Apex symbol reference is `inferred`, dynamic or unrecoverable target is `unresolved` with
+// reason in evidence detail. Parse failure never drops node - missed component is most expensive
+// error for reviewer. Edges leave with score 0; L4 fills score for ranking only. Pure; source and
+// dependency records are injected, so no network and no filesystem coupling.
 
 import type { MetadataComponent, MetadataDependencyRecord } from '../../ingestion/orgSnapshot.js';
 import { parseApexTrigger } from '../parse/apexParser.js';
 import { parseFlow } from '../parse/flowParser.js';
-import type { Evidence, ExecEdge, ExecNode } from '../types.js';
+import type { ConfidenceState, Evidence, ExecEdge, ExecNode } from '../types.js';
 import type { InventoryItem } from './inventory.js';
 
 // Resolve raw source body for one component, or undefined when body is unavailable offline. Keyed on
@@ -40,9 +41,9 @@ function targetId(type: string, name: string): string {
   return `${TYPE_PREFIX[type] ?? type.toLowerCase()}:${name}`;
 }
 
-// Fresh dependency edge with provisional score/state; L4 rescoring sets both.
-function edge(from: string, to: string, evidence: Evidence[]): ExecEdge {
-  return { from, to, kind: 'dependency', state: 'unresolved', score: 0, evidence };
+// Dependency edge with rule-assigned state and evidence. Score is filled at assembly for ranking.
+function edge(from: string, to: string, state: ConfidenceState, evidence: Evidence[]): ExecEdge {
+  return { from, to, kind: 'dependency', state, score: 0, evidence };
 }
 
 export function extract(input: ExtractInput): ExtractResult {
@@ -94,14 +95,16 @@ function extractFlow(node: ExecNode, source: string, edges: ExecEdge[]): void {
   }
   for (const reference of flow.references) {
     if (reference.kind === 'subflow' && reference.flowName) {
+      // Explicit subflow call in Flow XML - confirmed reference.
       edges.push(
-        edge(node.id, targetId('Flow', reference.flowName), [
+        edge(node.id, targetId('Flow', reference.flowName), 'confirmed', [
           { type: 'flow_xml_static', ref: node.apiName, detail: `subflow ${reference.flowName}` },
         ]),
       );
     } else if (reference.object) {
+      // Explicit record reference in Flow XML - confirmed reference.
       edges.push(
-        edge(node.id, targetId('CustomObject', reference.object), [
+        edge(node.id, targetId('CustomObject', reference.object), 'confirmed', [
           {
             type: 'flow_xml_static',
             ref: node.apiName,
@@ -113,29 +116,31 @@ function extractFlow(node: ExecNode, source: string, edges: ExecEdge[]): void {
   }
 }
 
-// Apex body: coarse symbol references become edges to classes; dynamic constructs become heuristic
-// edges to one unresolved target per node, carrying reason.
+// Apex body: coarse symbol references become inferred edges to classes; dynamic constructs become
+// unresolved edges to one target per node, carrying reason.
 function extractApex(node: ExecNode, source: string, edges: ExecEdge[]): void {
   const parsed = parseApexTrigger(source);
   node.evidence.push({ type: 'apex_static', ref: node.apiName });
   for (const symbol of parsed.symbolRefs) {
+    // Coarse symbol reference, not corroborated dependency - inferred.
     edges.push(
-      edge(node.id, targetId('ApexClass', symbol), [
+      edge(node.id, targetId('ApexClass', symbol), 'inferred', [
         { type: 'apex_static', ref: node.apiName, detail: `references ${symbol}` },
       ]),
     );
   }
   for (const reason of parsed.dynamic) {
+    // Dynamically built target cannot be resolved statically - unresolved.
     edges.push(
-      edge(node.id, `unresolved:${node.apiName}`, [
+      edge(node.id, `unresolved:${node.apiName}`, 'unresolved', [
         { type: 'heuristic', ref: node.apiName, detail: reason },
       ]),
     );
   }
 }
 
-// Direct dependency records: each record whose component matches node becomes strong edge to
-// its referenced target. Strongest signal, so these lift edges toward confirmed at L4.
+// Direct dependency records: each record whose component matches node becomes confirmed edge to
+// its referenced target. Strongest signal - direct platform dependency record.
 function extractDependencyRecords(
   nodes: ExecNode[],
   records: MetadataDependencyRecord[],
@@ -152,7 +157,7 @@ function extractDependencyRecords(
     if (!from) continue;
     for (const node of from) {
       edges.push(
-        edge(node.id, targetId(record.refType, record.refName), [
+        edge(node.id, targetId(record.refType, record.refName), 'confirmed', [
           {
             type: 'dependency_api',
             ref: record.refName,

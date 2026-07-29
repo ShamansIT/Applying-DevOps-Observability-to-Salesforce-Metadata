@@ -76,10 +76,10 @@ describe('classify (L2)', () => {
     }
   });
 
-  it('gives active participants interim inferred state with zero score', () => {
+  it('gives active participants confirmed state with ranking score filled later', () => {
     const nodes = classify([item({ nodeType: 'flow_before', fullName: 'F' })], MODEL);
-    expect(nodes[0]?.state).toBe('inferred');
-    expect(nodes[0]?.score).toBe(0);
+    expect(nodes[0]?.state).toBe('confirmed');
+    expect(nodes[0]?.score).toBe(0); // ranking score is filled at assembly
     expect(nodes[0]?.evidence[0]?.type).toBe('config_link');
   });
 

@@ -5,5 +5,24 @@
   "cluster": "mixed",
   "depthLimit": 0,
   "snapshot": "../snapshots/s01-eval.json",
-  "notes": "Account update pilot: Apex trigger split before/after with a dependency-record class reference and one dynamic SOQL that a human knows targets Contact; before-save and after-save flows, after-save creating a Task; one validation rule. Exercises confirmed dependency edges, an inferred flow edge, and a deliberately unresolvable dynamic reference the tool should miss rather than guess."
+  "taskPrompt": "For an Account update, list every automation that runs, the order it runs in, and every record each one writes or references.",
+  "startingPoint": "Account object in Setup with source metadata only, before any deployment or execution.",
+  "complexityProfile": {
+    "level": "medium",
+    "automationCount": 5,
+    "crossObject": true
+  },
+  "expansionProfile": {
+    "usesExpansion": false,
+    "maxDepth": 0,
+    "notes": "No subflow chains; single-level references only."
+  },
+  "groundTruthReference": "S01",
+  "inclusionRationale": "Pilot that mixes programmatic and declarative automation and holds one dynamic SOQL a human knows targets Contact, so it exercises confirmed dependency edges, an inferred flow edge, and a deliberately unresolvable reference the tool must miss rather than guess.",
+  "versions": {
+    "apiVersion": "67.0",
+    "toolVersion": "0.0.1",
+    "snapshot": "s01-eval"
+  },
+  "notes": "Account update pilot: Apex trigger split before/after with a dependency-record class reference and one dynamic SOQL that a human knows targets Contact; before-save and after-save flows, after-save creating a Task; one validation rule."
 }

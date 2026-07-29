@@ -22,23 +22,26 @@ Five layers. Each returns increment; L5 is optional and off by default.
 - **L3 reference extraction (`extract.ts`).** Parse node bodies and read direct dependency records,
   then emit `dependency` edges and enrich node evidence. Flow record references become edges to their
   objects, subflow calls to their flows, explicit trigger order to `config_link` evidence; Apex
-  symbol references become edges to classes. Dynamic or unrecoverable targets come back as low-weight
-  `heuristic` signals that resolve to `unresolved`, with reason in evidence detail. Parse failure
-  never drops node - it is captured as evidence, since missed component is most expensive
-  error for reviewer.
-- **L4 graph assembly (`assemble.ts`).** Merge and dedupe nodes and edges by stable id, score each
-  from its evidence, resolve state, and freeze output order. Scope exclusion wins over score.
+  symbol references become `inferred` edges to classes. Dynamic or unrecoverable targets are marked
+  `unresolved` with reason in evidence detail. Parse failure never drops node - it is captured as
+  evidence, since missed component is most expensive error for reviewer.
+- **L4 graph assembly (`assemble.ts`).** Merge and dedupe nodes and edges by stable id, fill ranking
+  score, finalise confidence state (rule-based), and freeze output order.
 - **L5 optional expansion (`expand.ts`).** Expand referenced targets (subflows, transitive flows) to
   configured depth, behind flag, with cycle guard keyed on stable id. Depth 0 is no-op.
 
-## Scoring and state
+## Confidence and score
 
-Score is sum of weights of present evidence, clamped to `[0, 1]`; thresholds turn score into state
-(`score.ts`, `weights.ts`). Weights and thresholds live in `config/weights.json` - data, not code -
-so calibration replaces them without touching scorer. State resolution order is exact: scope
-exclusion first (`excludeReason` set means `excluded` whatever score), then `confirmed` at or
-above confirmed threshold, `inferred` at or above inferred threshold, else `unresolved`. Node in
-asynchronous phase is out of scope and is excluded with reason.
+Confidence state is assigned by rule that creates node or edge, not derived from score.
+Active participant with explicit metadata and pinned-model phase is `confirmed`; inactive or
+asynchronous-phase participant is `excluded` with reason. Direct dependency record and explicit
+parsed reference are `confirmed`; coarse Apex symbol reference is `inferred`; dynamic or
+unrecoverable target is `unresolved`. Finalisation (`score.ts`) keeps that state, with scope
+exclusion winning first and no-evidence falling to `unresolved`; deduplication keeps strongest state.
+
+Score is sum of evidence weights, clamped to `[0, 1]`, and drives ranking only - it never selects
+state. Weights live in `config/weights.json` (`weights.ts`) as data; thresholds there are not used
+for state.
 
 ## Risk indicators
 
@@ -72,12 +75,11 @@ what evidence exists, edges are simply fewer.
 
 ## Modelling decisions
 
-Recorded in ADR 005 and ADR 006; summary here.
-
 - **Trigger firing in both timings becomes two nodes** - one per phase, id suffixed by phase key.
-- **Skeleton state is interim until assembly** - classify emits `inferred`; L4 scores and resolves.
-- **Scoring defaults are provisional** - `config/weights.json` holds placeholders until calibration.
-- **Dynamic constructs are `heuristic`** - lowest weight, so they resolve to `unresolved` honestly.
+- **Confidence is rule-based, not score-derived** - state is assigned at creation and kept through
+  finalisation; score ranks only.
+- **Dynamic constructs are `unresolved`** - target cannot be resolved statically, so extraction marks
+  edge `unresolved` with reason.
 
 ## Webview
 
@@ -93,19 +95,20 @@ Markdown / SVG export commands. Exporters live in `src/persistence` (see persist
 
 - Live per-layer streaming into persistent webview shell (current host swaps HTML per emission,
   which is instant since analysis is sub-millisecond).
-- Calibration replaces provisional weights and thresholds on pilot subset.
+- Ranking calibration tunes provisional weights for order only, on held-out validation scenarios; it
+  never moves confidence state or a reported metric.
 
 ## Files
 
-| File                        | Responsibility                                              |
-| --------------------------- | ----------------------------------------------------------- |
-| `inventory.ts`              | L1 candidate set for `(object, event)`, offline.            |
-| `classify.ts`               | L2 phase assignment from pinned model.                      |
-| `extract.ts`                | L3 body parse and dependency records to edges.              |
-| `expand.ts`                 | L5 depth-bounded expansion with cycle guard.                |
-| `assemble.ts`               | L4 merge, dedupe, score, resolve state, freeze order.       |
-| `reconstruct.ts`            | Orchestrate layers, emit skeleton, degrade, record timings. |
-| `../score/`                 | Weight model loader plus score and state resolution.        |
-| `../risk/indicators.ts`     | Seven review-attention signals, deterministic vs heuristic. |
-| `../parse/`                 | Flow XML and Apex header parsers.                           |
-| `webview/renderSkeleton.ts` | Deterministic skeleton-to-HTML render (no `vscode`).        |
+| File                        | Responsibility                                                |
+| --------------------------- | ------------------------------------------------------------- |
+| `inventory.ts`              | L1 candidate set for `(object, event)`, offline.              |
+| `classify.ts`               | L2 phase assignment from pinned model.                        |
+| `extract.ts`                | L3 body parse and dependency records to edges.                |
+| `expand.ts`                 | L5 depth-bounded expansion with cycle guard.                  |
+| `assemble.ts`               | L4 merge, dedupe, ranking score, finalise state, freeze.      |
+| `reconstruct.ts`            | Orchestrate layers, emit skeleton, degrade, record timings.   |
+| `../score/`                 | Weight loader, ranking score, rule-based confidence finalise. |
+| `../risk/indicators.ts`     | Seven review-attention signals, deterministic vs heuristic.   |
+| `../parse/`                 | Flow XML and Apex header parsers.                             |
+| `webview/renderSkeleton.ts` | Deterministic skeleton-to-HTML render (no `vscode`).          |

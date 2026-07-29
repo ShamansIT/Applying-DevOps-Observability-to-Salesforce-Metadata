@@ -1,0 +1,9 @@
+{
+  "repeats": 2,
+  "cases": [
+    {
+      "scenario": "fixtures/scenarios/S01.json",
+      "groundTruth": "fixtures/ground-truth/S01.json"
+    }
+  ]
+}

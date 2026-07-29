@@ -5,7 +5,7 @@
     "https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_triggers_order_of_execution.htm"
   ],
   "accessed": "2026-07-25",
-  "note": "Verified line-by-line against official Salesforce Order of Execution documentation for API 67.0 (Summer '26) on 2026-07-25. Twelve canonical phases and their order match official steps. Object-scoped rule families (assignment, auto-response, escalation, entitlement) and Process Builder / workflow-launched flows are represented as nodes on their governing phase, not as separate ordered phases. See ADR 004.",
+  "note": "Verified line-by-line against official Salesforce Order of Execution documentation for API 67.0 (Summer '26) on 2026-07-25. Twelve canonical phases and their order match official steps. Object-scoped rule families (assignment, auto-response, escalation, entitlement) and Process Builder / workflow-launched flows are represented as nodes on their governing phase, not as separate ordered phases.",
   "phases": [
     { "key": "system_validation", "label": "System validation", "sync": true },
     { "key": "before_save_flows", "label": "Before-save record-triggered flows", "sync": true },

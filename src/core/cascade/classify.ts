@@ -2,10 +2,10 @@
 // model and turn it into ExecNode. Mapping is data-driven off phase keys, so release change swaps
 // phases.v<NN>.json without touching this code. Pure.
 //
-// Interim confidence: skeleton nodes carry state `inferred` with score 0. Scoring and final state
-// resolution need calibrated weights and land in graph assembly, not here - see docs/modules
-// /cascade.md and ADR 005. Inactive participants are marked `excluded` with reason, since inactive
-// automation does not fire.
+// Confidence: active participant with explicit metadata and phase from pinned model is platform
+// rule, so node state is `confirmed` at creation (rule-based, not score-derived).
+// Inactive participant is `excluded` with reason, since inactive automation does not fire. Score is
+// filled at assembly for ranking only.
 
 import type { PhaseModel } from '../phases/phaseModel.js';
 import { phaseIndex } from '../phases/phaseModel.js';
@@ -77,8 +77,8 @@ function triggerNode(item: InventoryItem, timing: SaveTiming, model: PhaseModel)
   return nodeFor(item, phase, id, `${item.fullName} (${timing})`, model);
 }
 
-// Assemble node with phase check, evidence and interim state. Throws when mapped phase is absent
-// from pinned model, which would mean classifier and model drifted apart.
+// Assemble node with phase check, evidence and rule-assigned state. Throws when mapped phase is
+// absent from pinned model, which would mean classifier and model drifted apart.
 function nodeFor(
   item: InventoryItem,
   phase: PhaseKey,
@@ -98,7 +98,7 @@ function nodeFor(
     object: item.object,
     phase,
     active: item.active,
-    state: excluded ? 'excluded' : 'inferred',
+    state: excluded ? 'excluded' : 'confirmed',
     score: 0,
     evidence: evidenceFor(item),
   };

@@ -16,6 +16,10 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Install
         run: npm ci
 
@@ -32,6 +36,14 @@ jobs:
 
       - name: Build extension bundle
         run: npm run build:extension
+
+      # Statistics maths is checked against textbook inputs, and the evaluation pilot runs end to end
+      # (build, run core, write results package) as a smoke, both outside the vitest gate.
+      - name: Stats tool self-test
+        run: npm run eval:stats:selftest
+
+      - name: Evaluation pilot smoke
+        run: npm run eval:pilot
 
       - name: No TODO(agent) left in src
         run: |

@@ -27,3 +27,6 @@ Thumbs.db
 # Local env
 .env
 .env.*
+
+# Architecture decision records (excluded from the repo)
+docs/ADR/

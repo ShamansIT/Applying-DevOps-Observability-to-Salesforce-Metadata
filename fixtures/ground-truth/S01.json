@@ -1,29 +1,88 @@
 {
   "id": "S01",
+  "source": "Author inspection of Account update metadata: trigger and flow bodies, dependency records, and known dynamic SOQL target.",
+  "nodes": [
+    {
+      "id": "apex_trigger:Account:AccountTrigger:before_triggers",
+      "phase": "before_triggers",
+      "type": "apex_trigger",
+      "rationale": "Active trigger declares before update, so it fires in before-trigger phase.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "apex_trigger:Account:AccountTrigger:after_triggers",
+      "phase": "after_triggers",
+      "type": "apex_trigger",
+      "rationale": "Same trigger declares after update, so it fires again in after-trigger phase.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_before:Account:Account_Before_Save",
+      "phase": "before_save_flows",
+      "type": "flow_before",
+      "rationale": "Active before-save record-triggered flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_after:Account:Account_After_Save",
+      "phase": "after_save_flows",
+      "type": "flow_after",
+      "rationale": "Active after-save record-triggered flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "validation_rule:Account:Account.Require_Industry",
+      "phase": "custom_validation",
+      "type": "validation_rule",
+      "rationale": "Active validation rule runs in system validation phase on update.",
+      "source": "Validation rule metadata in snapshot.",
+      "adjudication": "scorable"
+    }
+  ],
   "edges": [
     {
       "from": "apex_trigger:Account:AccountTrigger:before_triggers",
       "to": "apex_class:AccountService",
       "phase": "before_triggers",
-      "expected": "confirmed"
+      "expected": "confirmed",
+      "relationship": "invokes",
+      "rationale": "Trigger calls AccountService; dependency record names the class, so link is certain.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
     },
     {
       "from": "apex_trigger:Account:AccountTrigger:after_triggers",
       "to": "apex_class:AccountService",
       "phase": "after_triggers",
-      "expected": "confirmed"
+      "expected": "confirmed",
+      "relationship": "invokes",
+      "rationale": "Same call reached from after-trigger execution of the trigger.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
     },
     {
       "from": "flow_after:Account:Account_After_Save",
       "to": "object:Task",
       "phase": "after_save_flows",
-      "expected": "inferred"
+      "expected": "inferred",
+      "relationship": "writes",
+      "rationale": "After-save flow creates a Task record; static flow parse names the target object.",
+      "source": "Flow create-records element.",
+      "adjudication": "scorable"
     },
     {
       "from": "apex_trigger:Account:AccountTrigger:after_triggers",
       "to": "object:Contact",
       "phase": "after_triggers",
-      "expected": "inferred"
+      "expected": "inferred",
+      "relationship": "reads",
+      "rationale": "Dynamic SOQL string targets Contact; a human reading the code knows this, static analysis cannot, so the tool is expected to miss rather than guess.",
+      "source": "Author knowledge of dynamic query string.",
+      "adjudication": "scorable"
     }
   ]
 }

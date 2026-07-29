@@ -26,6 +26,12 @@ const DEFAULT_PHASE_FILE = 'phases.v67.json';
 // pinned phases.v<NN>.json swaps in without code changes.
 export function loadPhaseModel(fileName: string = DEFAULT_PHASE_FILE): PhaseModel {
   const path = fileURLToPath(new URL(`./${fileName}`, import.meta.url));
+  return loadPhaseModelFromPath(path);
+}
+
+// Load phase model from an explicit path. For callers whose bundle sits away from the data file, so
+// module-relative resolution would miss - they pass the path themselves.
+export function loadPhaseModelFromPath(path: string): PhaseModel {
   const model = JSON.parse(readFileSync(path, 'utf8')) as PhaseModel;
   validatePhaseModel(model);
   return model;

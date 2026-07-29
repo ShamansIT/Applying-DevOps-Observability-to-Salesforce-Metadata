@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { resolveState, scoreEvidence } from '../../../src/core/score/score.js';
+import { finaliseConfidence, scoreEvidence } from '../../../src/core/score/score.js';
 import type { WeightModel } from '../../../src/core/score/index.js';
 import type { ConfidenceState, Evidence, EvidenceType } from '../../../src/core/types.js';
 
-// Fixed model so expectations are explicit and independent of config values.
+// Fixed model so ranking-score expectations are explicit and independent of config values.
 const WEIGHTS: WeightModel = {
   provisional: true,
   evidenceWeights: {
@@ -21,69 +21,67 @@ function ev(types: EvidenceType[]): Evidence[] {
   return types.map((type) => ({ type, ref: 'r' }));
 }
 
-interface Case {
-  name: string;
-  evidence: EvidenceType[];
-  excludeReason?: string;
-  score: number;
-  state: ConfidenceState;
-}
-
-const CASES: Case[] = [
-  { name: 'no evidence', evidence: [], score: 0, state: 'unresolved' },
-  { name: 'heuristic only', evidence: ['heuristic'], score: 0.2, state: 'unresolved' },
-  {
-    name: 'two heuristics hit inferred boundary',
-    evidence: ['heuristic', 'heuristic'],
-    score: 0.4,
-    state: 'inferred',
-  },
-  { name: 'config link', evidence: ['config_link'], score: 0.5, state: 'inferred' },
-  { name: 'object binding', evidence: ['object_binding'], score: 0.7, state: 'inferred' },
-  {
-    name: 'dependency api hits confirmed',
-    evidence: ['dependency_api'],
-    score: 0.9,
-    state: 'confirmed',
-  },
-  {
-    name: 'flow plus config clamps to one',
-    evidence: ['flow_xml_static', 'config_link'],
-    score: 1,
-    state: 'confirmed',
-  },
-  {
-    name: 'apex plus flow clamps to one',
-    evidence: ['apex_static', 'flow_xml_static'],
-    score: 1,
-    state: 'confirmed',
-  },
-  {
-    name: 'exclusion wins over strong evidence',
-    evidence: ['dependency_api'],
-    excludeReason: 'inactive',
-    score: 0.9,
-    state: 'excluded',
-  },
-];
-
-describe('scoring table', () => {
-  for (const testCase of CASES) {
+// Ranking score is a sum of weights; it never selects state.
+describe('ranking score table', () => {
+  const cases: { name: string; evidence: EvidenceType[]; score: number }[] = [
+    { name: 'no evidence', evidence: [], score: 0 },
+    { name: 'heuristic only', evidence: ['heuristic'], score: 0.2 },
+    { name: 'config link', evidence: ['config_link'], score: 0.5 },
+    { name: 'dependency api', evidence: ['dependency_api'], score: 0.9 },
+    {
+      name: 'flow plus config clamps to one',
+      evidence: ['flow_xml_static', 'config_link'],
+      score: 1,
+    },
+  ];
+  for (const testCase of cases) {
     it(testCase.name, () => {
-      const score = scoreEvidence(ev(testCase.evidence), WEIGHTS);
-      expect(score).toBeCloseTo(testCase.score, 5);
-      expect(resolveState(score, WEIGHTS, testCase.excludeReason)).toBe(testCase.state);
+      expect(scoreEvidence(ev(testCase.evidence), WEIGHTS)).toBeCloseTo(testCase.score, 5);
     });
   }
+});
 
-  it('resolves exactly on each threshold boundary', () => {
-    expect(resolveState(0.8, WEIGHTS)).toBe('confirmed');
-    expect(resolveState(0.799, WEIGHTS)).toBe('inferred');
-    expect(resolveState(0.4, WEIGHTS)).toBe('inferred');
-    expect(resolveState(0.399, WEIGHTS)).toBe('unresolved');
-  });
-
-  it('treats blank exclude reason as no exclusion', () => {
-    expect(resolveState(0.9, WEIGHTS, '   ')).toBe('confirmed');
-  });
+// State is the assigned state kept through finalisation, regardless of score.
+describe('confidence table', () => {
+  const cases: {
+    name: string;
+    assigned: ConfidenceState;
+    evidence: EvidenceType[];
+    excludeReason?: string;
+    state: ConfidenceState;
+  }[] = [
+    {
+      name: 'confirmed kept',
+      assigned: 'confirmed',
+      evidence: ['dependency_api'],
+      state: 'confirmed',
+    },
+    { name: 'inferred kept', assigned: 'inferred', evidence: ['apex_static'], state: 'inferred' },
+    {
+      name: 'unresolved kept',
+      assigned: 'unresolved',
+      evidence: ['heuristic'],
+      state: 'unresolved',
+    },
+    {
+      name: 'no evidence falls to unresolved',
+      assigned: 'confirmed',
+      evidence: [],
+      state: 'unresolved',
+    },
+    {
+      name: 'scope exclusion wins',
+      assigned: 'confirmed',
+      evidence: ['dependency_api'],
+      excludeReason: 'inactive',
+      state: 'excluded',
+    },
+  ];
+  for (const testCase of cases) {
+    it(testCase.name, () => {
+      expect(
+        finaliseConfidence(testCase.assigned, ev(testCase.evidence), testCase.excludeReason),
+      ).toBe(testCase.state);
+    });
+  }
 });

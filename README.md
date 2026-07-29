@@ -42,7 +42,7 @@ src/persistence   workspace cache, graph cache, run log, exporters (JSON, Markdo
 src/evaluation    Chapter 5 procedure: scenarios, ground truth, comparison, metrics, calibration
 fixtures/         org snapshots, scenarios, Ground Truth / Expected Execution Maps
 config/           weights, thresholds, latency budgets
-docs/             ADRs, RUNBOOK, VERSIONS, module notes
+docs/             RUNBOOK, VERSIONS, module notes
 results/          structured prototype outputs, run metadata, metric CSVs
 ```
 

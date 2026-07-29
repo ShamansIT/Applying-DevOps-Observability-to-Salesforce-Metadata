@@ -82,8 +82,39 @@ npx vitest run test/evaluation/pilot.test.ts
 ```
 
 It loads `fixtures/scenarios/S01.json`, drives same core IDE drives against S01 snapshot, compares
-against hashed ground truth in `fixtures/ground-truth/S01.json`, and asserts precision 1, recall 0.75
-(dynamic reference is missed, not guessed), and phase-ordering accuracy 1.
+against hashed ground truth in `fixtures/ground-truth/S01.json`, and asserts node recall and precision
+1, edge precision 1, edge recall 0.75 (dynamic reference is missed, not guessed), ordered path
+coverage 0.889, and node phase-assignment accuracy 1.
+
+## Evaluation run and statistics
+
+Run the frozen-results pipeline from repository root:
+
+```
+npm run eval:pilot
+```
+
+This builds the evaluation bundle (`dist/eval/cli.mjs`), runs core over the scenarios in
+`config/eval/pilot.json`, checks determinism by a double run, and writes `results/<date>-pilot/` with
+`manifest.json` (freeze id, versions, per-scenario ground-truth hash, determinism stamp),
+`metrics-scenario.csv`, `metrics-aggregate.csv`, `latency.csv`, and `graphs/<id>.json`. `results/` is
+git-ignored except the committed summary.
+
+`npm run eval:main` runs the full scenario set in `config/eval/main.json`; it holds S01 until S02
+onward are authored, so append each as a `scenario` / `groundTruth` pair. `npm run eval:repeat` runs
+the same set more times for a latency distribution. `npm run eval:aggregate -- --freeze <id>` re-rolls
+an existing run's metrics without touching core.
+
+Statistics live in a separate Python tool, outside vitest and the core:
+
+```
+npm run eval:stats:selftest                 # checks the maths against textbook inputs, no data needed
+npm run eval:stats -- results/<freeze-id>   # median/iqr, wilcoxon, sign, bootstrap, holm, mcnemar
+```
+
+`eval:stats` reads `paired.csv` (`unit,metric,prototype,baseline`) and optional `outcomes.csv`
+(`unit,prototype_correct,baseline_correct`) from the run directory - the human-collected baseline and
+assisted figures - and writes `stats.json` and `stats.csv`. Needs Python 3 on the path.
 
 ## Verification checklist
 
@@ -95,6 +126,8 @@ Reproducible from this document alone:
 - [ ] `F5` opens extension host; reconstruct command renders S01 skeleton then report.
 - [ ] JSON, Markdown and SVG export commands each write file.
 - [ ] `npx vitest run test/evaluation/pilot.test.ts` reproduces pilot comparison.
+- [ ] `npm run eval:pilot` writes `results/<date>-pilot/` with a deterministic manifest.
+- [ ] `npm run eval:stats:selftest` passes the statistics self-test.
 - [ ] `npm run test:e2e` (with display) passes command-registration smoke.
 
 ## Notes

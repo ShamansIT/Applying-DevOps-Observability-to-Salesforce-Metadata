@@ -28,6 +28,13 @@ describe('pilot scenario S01 (snapshot -> run -> comparison)', () => {
     expect(run.metrics.scenarioId).toBe('S01');
   });
 
+  it('recovers every expected node in its phase', () => {
+    expect(run.metrics.expectedNodes).toBe(5);
+    expect(run.metrics.nodeRecall).toBe(1);
+    expect(run.metrics.nodePrecision).toBe(1);
+    expect(run.metrics.phaseAccuracy).toBe(1);
+  });
+
   it('never claims a false edge - precision stays 1', () => {
     expect(run.metrics.precision).toBe(1);
     expect(run.metrics.noise).toBe(0);
@@ -38,11 +45,20 @@ describe('pilot scenario S01 (snapshot -> run -> comparison)', () => {
     expect(run.metrics.truePositives).toBe(3);
     expect(run.metrics.falseNegatives).toBe(1);
     expect(run.metrics.recall).toBe(0.75);
-    expect(run.metrics.coverage).toBe(0.75);
   });
 
-  it('places every matched edge in its expected phase', () => {
-    expect(run.metrics.phaseOrderingAccuracy).toBe(1);
+  it('covers most of the ordered backbone, short only the missed reference', () => {
+    // 5 nodes in phase + 3 matched edges over 5 expected nodes + 4 expected edges
+    expect(run.metrics.orderedPathCoverage).toBe(0.889);
+  });
+
+  it('shows its certainty - two unresolved edges standing in for the dynamic reference', () => {
+    expect(run.metrics.distribution).toEqual({
+      confirmed: 8,
+      inferred: 0,
+      unresolved: 2,
+      excluded: 0,
+    });
   });
 
   it('stamps the ground-truth hash and it matches a fresh hash', () => {

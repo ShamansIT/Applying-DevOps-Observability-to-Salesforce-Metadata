@@ -13,6 +13,15 @@ const EXPECTED_COMMANDS = [
 ];
 
 export async function run(): Promise<void> {
+  // activationEvents is empty, so nothing activates the extension on its own. Find it by name - no
+  // publisher is set, so the id is auto-assigned - and activate it before its commands can register.
+  const extension = vscode.extensions.all.find(
+    (candidate) =>
+      (candidate.packageJSON as { name?: string }).name === 'sf-observer-order-of-execution',
+  );
+  ok(extension, 'extension not found in host');
+  await extension.activate();
+
   const commands = await vscode.commands.getCommands(true);
   for (const id of EXPECTED_COMMANDS) {
     ok(commands.includes(id), `command not registered: ${id}`);
