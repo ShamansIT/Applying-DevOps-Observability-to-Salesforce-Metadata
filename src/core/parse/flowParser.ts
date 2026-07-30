@@ -62,13 +62,12 @@ function asRecord(value: unknown): Record<string, unknown> {
 export function parseFlow(xml: string): ParsedFlow {
   const empty: ParsedFlow = { hasEntryCriteria: false, references: [], subflows: [], errors: [] };
 
-  const valid = XMLValidator.validate(xml);
-  if (valid !== true) {
-    return { ...empty, errors: [`flow: XML invalid - ${valid.err.msg}`] };
-  }
-
   let root: Record<string, unknown>;
   try {
+    const valid = XMLValidator.validate(xml);
+    if (valid !== true) {
+      return { ...empty, errors: [`flow: XML invalid - ${valid.err.msg}`] };
+    }
     const parsed = asRecord(parser.parse(xml));
     root = asRecord(parsed['Flow']);
     if (Object.keys(root).length === 0) {

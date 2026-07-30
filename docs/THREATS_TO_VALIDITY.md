@@ -4,27 +4,35 @@ Honest limits of the automated mutation-based evaluation, so results are read wi
 
 ## Construct
 
-- **Prototype is not a validator.** The core reconstructs phase-ordered execution flow with
-  confidence and risk, it does not prove a reference broken. So its strongest current prediction is a
-  material warning, and `blocking_finding` is reserved for a future validator and not emitted. Detection
-  metrics measure whether the prototype raises a concern, not whether it proves a defect.
+- **Prototype is not a full validator.** The core reconstructs phase-ordered execution flow with
+  confidence and risk; it does not compile or simulate runtime. A conservative preflight layer emits
+  `blocking_finding` only for directly-evidenced deterministic failures (a source reference to a
+  component absent from the project and unconfirmed by a dependency record). Everything else is a
+  material warning, unresolved, or out of scope. Detection metrics therefore cover the narrow set of
+  statically-provable failures the rules implement, not every possible defect.
 - **Project-to-snapshot fidelity.** The prototype analyses a snapshot. Building a faithful snapshot from
   an arbitrary mutated project depends on the readers; where a mutation's effect is not represented in
-  the snapshot, the prototype cannot see it. Base topologies must carry snapshots rich enough for the
-  core, or the reader must be extended - a known limitation.
+  the snapshot, the prototype cannot see it. The bridge is exact for generated topologies, whose format
+  the snapshot builder targets; arbitrary hand-authored projects are out of scope.
+- **Prototype and oracle parity.** Each scenario is written to disk and checksum-verified, and the CLI
+  runs with that directory as its working directory, so the prototype (in memory) and the oracle (on
+  disk) judge the same bytes. The verification guards against a silent divergence but does not prove the
+  generated metadata is faithful to production usage.
 - **Oracle coverage.** A dry-run deploy with local tests catches compile, reference and test failures,
-  not every runtime condition. Runtime-only mutations need a scratch-org deploy plus a scripted
-  transaction; where that stage is not run, a runtime-only miss is not a static false negative and is
-  reported apart.
+  not every runtime condition. A runtime stage provisions a disposable scratch org, deploys, and runs an
+  anonymous-apex probe; the probe uses required-field seeds for the standard objects and a describe
+  fallback otherwise, so a fallback probe is flagged for operator review, not trusted blindly. A
+  runtime-only miss is reported apart from a static false negative.
 
 ## Internal
 
-- **Single author.** The base topologies, mutations and ground truth are authored by one person who
-  also built the prototype. Mutation manifests and ground truth are hashed before runs to limit quiet
-  tuning, but independent review of a sample is the mitigation and is not yet done.
-- **Mock-tested integration.** The oracle and scratch-org adapters are tested against canned CLI
-  responses, not a live org, in this repository. Real-org behaviour may differ; real runs are required
-  before any hypothesis is reported as supported.
+- **Single author.** The topology and scenario generators, mutations and provisional ground truth are
+  built by one person who also built the prototype. Mutation manifests and ground truth are hashed before
+  runs to limit quiet tuning, but independent review of a sample is the mitigation and is not yet done.
+- **Mock-tested integration.** The oracle, stage oracle, scratch-org provisioner, clean-topology gate and
+  live runner are tested against canned CLI responses and an in-memory workspace, not a live org, in this
+  repository. The scratch-org lifecycle and the runtime probe are therefore unverified against a real
+  org; real runs are required before any hypothesis is reported as supported.
 
 ## External
 

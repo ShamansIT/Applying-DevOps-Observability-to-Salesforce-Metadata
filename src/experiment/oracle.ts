@@ -13,7 +13,19 @@ export interface ProcResult {
   stderr: string;
 }
 
-export type ProcRunner = (file: string, args: string[]) => Promise<ProcResult>;
+// Execution options a runner honours. cwd points the CLI at the materialised scenario, not the working
+// directory - the core of parity.
+export interface ProcOptions {
+  cwd: string;
+  timeoutMs: number;
+  env?: Record<string, string>;
+}
+
+export type ProcRunner = (
+  file: string,
+  args: string[],
+  options?: ProcOptions,
+) => Promise<ProcResult>;
 
 export type Outcome = 'pass' | 'fail' | 'not_run';
 export type InfrastructureStatus = 'ok' | 'retryable_failure' | 'permanent_failure';
@@ -29,19 +41,36 @@ export interface ValidationResult {
   raw: unknown;
 }
 
-// Dry-run deploy with local tests: the standard workflow feedback that the prototype races against.
-export function validateArgs(alias: string): string[] {
-  return [
-    'project',
-    'deploy',
-    'start',
-    '--dry-run',
-    '--test-level',
-    'RunLocalTests',
-    '--target-org',
-    alias,
-    '--json',
-  ];
+export type TestLevel = 'NoTestRun' | 'RunLocalTests';
+
+export interface DeployOptions {
+  dryRun: boolean;
+  testLevel: TestLevel;
+  sourceDir?: string;
+}
+
+// Deploy command builder. Dry-run checks metadata (with RunLocalTests, runs local tests too); a real
+// deploy is needed before a runtime transaction. sourceDir is explicit, so the CLI targets the package.
+export function deployArgs(alias: string, options: DeployOptions): string[] {
+  const args = ['project', 'deploy', 'start'];
+  if (options.dryRun) args.push('--dry-run');
+  if (options.sourceDir) args.push('--source-dir', options.sourceDir);
+  args.push('--test-level', options.testLevel, '--target-org', alias, '--json');
+  return args;
+}
+
+// Dry-run deploy with local tests: the standard workflow feedback the prototype races against.
+export function validateArgs(alias: string, sourceDir?: string): string[] {
+  return deployArgs(alias, {
+    dryRun: true,
+    testLevel: 'RunLocalTests',
+    ...(sourceDir ? { sourceDir } : {}),
+  });
+}
+
+// Anonymous-apex run against a deployed org, so a runtime-only failure deploy and tests miss can surface.
+export function apexRunArgs(alias: string, file: string): string[] {
+  return ['apex', 'run', '--target-org', alias, '--file', file, '--json'];
 }
 
 export function createScratchArgs(devHub: string, definitionFile: string, alias: string): string[] {
@@ -179,6 +208,76 @@ export function normaliseValidation(proc: ProcResult): ValidationResult {
   };
 }
 
+interface ApexRunJson {
+  status?: number;
+  name?: string;
+  message?: string;
+  result?: {
+    success?: boolean;
+    compiled?: boolean;
+    compileProblem?: string;
+    exceptionMessage?: string;
+    exceptionStackTrace?: string;
+  };
+}
+
+// Normalise an anonymous-apex run. Compile problem -> compile fail; exception -> runtime fail; clean
+// success -> pass. Unparseable output is infrastructure, not a product fault.
+export function normaliseRuntime(proc: ProcResult): ValidationResult {
+  let json: ApexRunJson;
+  try {
+    json = JSON.parse(proc.stdout) as ApexRunJson;
+  } catch {
+    return infra(proc, 'retryable_failure', 'unparseable apex-run output');
+  }
+  if (json.name && INFRA_NAMES.has(json.name)) {
+    return infra(proc, 'permanent_failure', json.message ?? json.name);
+  }
+  const result = json.result ?? {};
+  if (result.compiled === false) {
+    return {
+      outcome: 'fail',
+      failureClass: 'compile',
+      failingComponents: [],
+      message: result.compileProblem ?? 'anonymous apex did not compile',
+      actionable: true,
+      infrastructure: 'ok',
+      raw: json,
+    };
+  }
+  if (result.success === false || (result.exceptionMessage ?? '') !== '') {
+    return {
+      outcome: 'fail',
+      failureClass: 'runtime_exception',
+      failingComponents: [],
+      message: result.exceptionMessage ?? 'runtime transaction failed',
+      actionable: true,
+      infrastructure: 'ok',
+      raw: json,
+    };
+  }
+  if (result.success === true) {
+    return {
+      outcome: 'pass',
+      failureClass: 'none',
+      failingComponents: [],
+      message: 'runtime transaction succeeded',
+      actionable: true,
+      infrastructure: 'ok',
+      raw: json,
+    };
+  }
+  return {
+    outcome: 'not_run',
+    failureClass: 'unknown',
+    failingComponents: [],
+    message: json.message ?? 'no actionable runtime result',
+    actionable: false,
+    infrastructure: 'ok',
+    raw: json,
+  };
+}
+
 function infra(proc: ProcResult, status: InfrastructureStatus, message: string): ValidationResult {
   return {
     outcome: 'not_run',
@@ -191,9 +290,14 @@ function infra(proc: ProcResult, status: InfrastructureStatus, message: string):
   };
 }
 
-// Run dry-run validation through the injected runner and normalise. A non-zero exit with parseable
-// failure JSON is still a product outcome; only unparseable output is treated as infrastructure.
-export async function runValidation(alias: string, run: ProcRunner): Promise<ValidationResult> {
-  const proc = await run('sf', validateArgs(alias));
+// Run dry-run validation through the injected runner and normalise. options carry cwd, so the CLI
+// validates the materialised scenario, not the working directory.
+export async function runValidation(
+  alias: string,
+  run: ProcRunner,
+  options?: ProcOptions,
+): Promise<ValidationResult> {
+  const sourceDir = options ? 'force-app' : undefined;
+  const proc = await run('sf', validateArgs(alias, sourceDir), options);
   return normaliseValidation(proc);
 }

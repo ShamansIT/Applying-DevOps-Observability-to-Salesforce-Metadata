@@ -19,6 +19,9 @@ coverage/
 /results/*
 !/results/summary/
 
+# Frozen execution plan written by exp:freeze-plan before a live run
+/execution-schedule.*.json
+
 # Editor / OS
 .DS_Store
 Thumbs.db

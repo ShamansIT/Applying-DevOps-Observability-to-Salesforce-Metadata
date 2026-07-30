@@ -1,10 +1,5 @@
-// Headless prototype adapter. Runs the same read-only analysis core the VS Code extension runs,
-// against a materialised scenario's snapshot, and normalises its output into an experiment prediction.
-// It never consumes ground truth. Categorisation maps what the core actually produces - confidence
-// states, unresolved references, and risk indicators - onto prediction categories. The core is not a
-// validator, so `blocking_finding` (a definite statically-proven broken reference) is reserved for a
-// future validator and is not emitted here; the strongest current assertion is a material warning.
-// `no_blocking_finding` is never labelled a proven pass: org validation is still required.
+// Headless prototype adapter. Runs the read-only core against a materialised snapshot and normalises
+// output into a prediction, never consuming ground truth. `no_blocking_finding` is never a proven pass.
 
 import { reconstruct } from '../core/index.js';
 import type {
@@ -12,8 +7,11 @@ import type {
   PhaseModel,
   ReconstructResult,
   SourceResolver,
+  WeightModel,
 } from '../core/index.js';
 import type { OrgSnapshot } from '../ingestion/index.js';
+import { componentIdsFromSnapshot, preflight } from './preflight.js';
+import type { DiagnosticFinding } from './preflight.js';
 
 export type PredictionCategory =
   | 'blocking_finding'
@@ -48,10 +46,22 @@ function isClaim(state: string): boolean {
   return state === 'confirmed' || state === 'inferred';
 }
 
-// Reduce a reconstruction to a prediction. Pure: given the graph, the category and the first
-// actionable finding are deterministic.
-export function categorise(result: ReconstructResult): PrototypeOutcome {
+// Reduce a reconstruction to a prediction. Preflight blocking findings take precedence - they rest on
+// direct static evidence.
+export function categorise(
+  result: ReconstructResult,
+  blocking: DiagnosticFinding[] = [],
+): PrototypeOutcome {
   const stageEvents = result.meta.timings.map((timing) => ({ stage: timing.layer, ms: timing.ms }));
+  if (blocking.length > 0) {
+    const finding = blocking[0];
+    return outcome('blocking_finding', stageEvents, {
+      category: 'blocking_finding',
+      component: finding?.component ?? null,
+      reason: finding?.reason ?? 'blocking condition found',
+      scope: 'confirmed',
+    });
+  }
   const flaggedRisks = result.risk.filter((indicator) => indicator.flagged);
   const unresolvedEdges = result.edges.filter((edge) => edge.state === 'unresolved');
   const claimNodes = result.nodes.filter((node) => isClaim(node.state));
@@ -117,10 +127,11 @@ function outcome(
 export interface RunPrototypeOptions {
   sourceResolver?: SourceResolver;
   depthLimit?: number;
+  weights?: WeightModel; // pass explicitly so a bundled caller does not rely on default asset paths
 }
 
-// Run the core against one snapshot and categorise. A core error is a prototype outcome, not a thrown
-// exception, so the harness records it rather than aborting the run.
+// Run the core against one snapshot and categorise. A core error becomes a prototype outcome, not a
+// throw, so the harness records it.
 export function runPrototype(
   snapshot: OrgSnapshot,
   target: AnalysisTarget,
@@ -131,9 +142,15 @@ export function runPrototype(
     const result = reconstruct(snapshot, target, model, {
       ...(options.sourceResolver ? { sourceResolver: options.sourceResolver } : {}),
       ...(options.depthLimit !== undefined ? { depthLimit: options.depthLimit } : {}),
+      ...(options.weights ? { weights: options.weights } : {}),
       ...(snapshot.dependencies ? { dependencies: { records: snapshot.dependencies } } : {}),
     });
-    return { outcome: categorise(result), result };
+    // Preflight over project component inventory only - no ground truth.
+    const { blocking } = preflight({
+      result,
+      presentComponentIds: componentIdsFromSnapshot(snapshot),
+    });
+    return { outcome: categorise(result, blocking), result };
   } catch (error) {
     return {
       outcome: {

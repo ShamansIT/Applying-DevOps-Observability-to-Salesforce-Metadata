@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  apexRunArgs,
   createScratchArgs,
   deleteScratchArgs,
+  deployArgs,
+  normaliseRuntime,
   normaliseValidation,
   runValidation,
   validateArgs,
@@ -20,9 +23,57 @@ describe('argument arrays', () => {
     expect(args.slice(-2)).toEqual(['eval-org', '--json']);
   });
 
+  it('adds an explicit source dir when one is given', () => {
+    const args = validateArgs('eval-org', 'force-app');
+    expect(args).toContain('--source-dir');
+    expect(args[args.indexOf('--source-dir') + 1]).toBe('force-app');
+  });
+
+  it('builds a real deploy without a dry-run flag and with the chosen test level', () => {
+    const args = deployArgs('eval-org', { dryRun: false, testLevel: 'NoTestRun' });
+    expect(args).not.toContain('--dry-run');
+    expect(args).toContain('NoTestRun');
+  });
+
+  it('builds an anonymous-apex run against a file', () => {
+    const args = apexRunArgs('eval-org', 'scripts/probe.apex');
+    expect(args.slice(0, 2)).toEqual(['apex', 'run']);
+    expect(args).toContain('scripts/probe.apex');
+  });
+
   it('builds scratch create and delete arrays', () => {
     expect(createScratchArgs('hub', 'def.json', 'a1')).toContain('--target-dev-hub');
     expect(deleteScratchArgs('a1')).toContain('--no-prompt');
+  });
+});
+
+describe('normaliseRuntime', () => {
+  it('reads a runtime exception as a runtime failure', () => {
+    const v = normaliseRuntime(
+      proc(
+        JSON.stringify({ result: { success: false, compiled: true, exceptionMessage: 'boom' } }),
+        1,
+      ),
+    );
+    expect(v.outcome).toBe('fail');
+    expect(v.failureClass).toBe('runtime_exception');
+  });
+
+  it('reads a compile problem as a compile failure', () => {
+    const v = normaliseRuntime(
+      proc(JSON.stringify({ result: { compiled: false, compileProblem: 'bad token' } }), 1),
+    );
+    expect(v.failureClass).toBe('compile');
+  });
+
+  it('reads a clean run as a runtime pass', () => {
+    const v = normaliseRuntime(proc(JSON.stringify({ result: { success: true, compiled: true } })));
+    expect(v.outcome).toBe('pass');
+  });
+
+  it('treats unparseable apex-run output as infrastructure', () => {
+    const v = normaliseRuntime(proc('not json', 1));
+    expect(v.infrastructure).toBe('retryable_failure');
   });
 });
 
@@ -73,13 +124,30 @@ describe('normaliseValidation', () => {
 describe('runValidation', () => {
   it('runs the injected runner and normalises', async () => {
     const calls: string[][] = [];
-    const runner = async (file: string, args: string[]): Promise<ProcResult> => {
+    const runner = (file: string, args: string[]): Promise<ProcResult> => {
       calls.push([file, ...args]);
-      return proc(JSON.stringify({ result: { success: true } }));
+      return Promise.resolve(proc(JSON.stringify({ result: { success: true } })));
     };
     const v = await runValidation('eval-org', runner);
     expect(v.outcome).toBe('pass');
     expect(calls[0]?.[0]).toBe('sf');
     expect(calls[0]).toContain('--dry-run');
+  });
+
+  it('passes cwd options and an explicit source dir when options are given', async () => {
+    let seenArgs: string[] = [];
+    let seenCwd: string | undefined;
+    const runner = (
+      _file: string,
+      args: string[],
+      options?: { cwd: string },
+    ): Promise<ProcResult> => {
+      seenArgs = args;
+      seenCwd = options?.cwd;
+      return Promise.resolve(proc(JSON.stringify({ result: { success: true } })));
+    };
+    await runValidation('eval-org', runner, { cwd: '/work/scn', timeoutMs: 1000 });
+    expect(seenArgs).toContain('--source-dir');
+    expect(seenCwd).toBe('/work/scn');
   });
 });

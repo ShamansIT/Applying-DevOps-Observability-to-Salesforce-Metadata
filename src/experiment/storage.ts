@@ -1,5 +1,5 @@
 // Result storage and packaging. Turns a set of scenario runs and their metrics into an immutable,
-// checksummed result bundle: datasets and summaries plus a `checksums.sha256`. Secrets are redacted
+// checksummed result bundle: datasets and summaries plus `checksums.sha256`. Secrets are redacted
 // from anything stored - access tokens, auth URLs, usernames and personal paths never reach a result
 // file. Writing refuses to overwrite an existing freeze directory. Pure serialisation is separate from
 // the filesystem write, so the bundle is unit-tested without touching disk.
@@ -87,6 +87,8 @@ export interface BundleInput {
   createdAt: string;
   runs: ScenarioRun[];
   metrics: ExperimentMetrics;
+  rawFiles?: FileMap; // per-attempt raw records, already redacted by the caller
+  extraFiles?: FileMap; // execution plan, exception queue and similar side documents
 }
 
 // Serialise a result bundle to a path-to-content map. All text is redacted. A checksums.sha256 covers
@@ -104,6 +106,13 @@ export function buildExperimentBundle(input: BundleInput): FileMap {
   const redacted: FileMap = {};
   for (const [path, content] of Object.entries(files)) {
     redacted[path] = redact(content);
+  }
+  for (const [path, content] of Object.entries(input.extraFiles ?? {})) {
+    redacted[path] = redact(content);
+  }
+  // Raw files are already redacted in rawStorage; store as-is so a re-redact never changes a hash.
+  for (const [path, content] of Object.entries(input.rawFiles ?? {})) {
+    redacted[path] = content;
   }
   redacted['checksums.sha256'] = experimentChecksums(redacted);
   return redacted;

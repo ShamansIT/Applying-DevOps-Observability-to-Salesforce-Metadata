@@ -1,10 +1,10 @@
 import { defineConfig } from 'vitest/config';
 
 // Test and coverage config. Coverage thresholds are CI regression gate: drop below them fails
-// run. Excluded from coverage: barrels (re-exports only), extension host glue and live
-// Salesforce adapter (both need VS Code or real org, covered by e2e smoke and manual runs), and
-// pure type declarations. e2e suite runs under @vscode/test-electron, not vitest, so it is excluded
-// from test run here.
+// run. Excluded from coverage: barrels (re-exports only), extension host glue, live Salesforce adapter
+// and the real-org session orchestration (all need VS Code or a real org, covered by e2e smoke and
+// manual runs), and pure type declarations. e2e suite runs under @vscode/test-electron, not vitest, so
+// it is excluded from test run here.
 export default defineConfig({
   test: {
     include: ['test/**/*.test.ts'],
@@ -15,6 +15,8 @@ export default defineConfig({
       exclude: [
         '**/index.ts',
         '**/cli-run.ts',
+        'src/experiment/childRunner.ts',
+        'src/experiment/orgSession.ts',
         'src/extension/index.ts',
         'src/ingestion/salesforceConnection.ts',
         'src/core/types.ts',
