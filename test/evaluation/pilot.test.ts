@@ -35,21 +35,22 @@ describe('pilot scenario S01 (snapshot -> run -> comparison)', () => {
     expect(run.metrics.phaseAccuracy).toBe(1);
   });
 
-  it('never claims a false edge - precision stays 1', () => {
-    expect(run.metrics.precision).toBe(1);
-    expect(run.metrics.noise).toBe(0);
-  });
-
-  it('misses the dynamic reference rather than guessing - recall below 1', () => {
-    expect(run.metrics.expected).toBe(4);
+  it('reconstructs every statically-detectable edge with no false claim', () => {
+    expect(run.metrics.expected).toBe(3); // three static-detectable edges
     expect(run.metrics.truePositives).toBe(3);
-    expect(run.metrics.falseNegatives).toBe(1);
-    expect(run.metrics.recall).toBe(0.75);
+    expect(run.metrics.precision).toBe(1);
+    expect(run.metrics.recall).toBe(1);
+    expect(run.metrics.relationshipAccuracy).toBe(1);
+    expect(run.metrics.finalEdgeNoiseRate).toBe(0);
   });
 
-  it('covers most of the ordered backbone, short only the missed reference', () => {
-    // 5 nodes in phase + 3 matched edges over 5 expected nodes + 4 expected edges
-    expect(run.metrics.orderedPathCoverage).toBe(0.889);
+  it('leaves the runtime-only reference unresolved rather than guessing', () => {
+    expect(run.metrics.runtimeOnlyExpected).toBe(1); // dynamic Contact SOQL
+    expect(run.metrics.runtimeOnlyHandled).toBe(1); // not falsely claimed
+  });
+
+  it('covers the whole ordered backbone of what is statically detectable', () => {
+    expect(run.metrics.orderedPathCoverage).toBe(1);
   });
 
   it('shows its certainty - two unresolved edges standing in for the dynamic reference', () => {

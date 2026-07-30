@@ -3,15 +3,19 @@
 // main run their configured set; repeat runs the same set more times for a latency distribution;
 // aggregate re-rolls an existing run's metrics. Meant to be run from repository root.
 
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { loadPhaseModelFromPath } from '../core/phases/phaseModel.js';
 import { loadWeights } from '../core/score/index.js';
+import type { ConfigHashes, FreezeEnvironment } from './runner.js';
 import { loadSnapshot } from '../ingestion/index.js';
 import { loadGroundTruth } from './groundTruth.js';
 import { aggregate, toAggregateCsv } from './metrics.js';
 import type { ScenarioResult } from './metrics.js';
+import { assertDisjointMainPlan } from './plan.js';
 import { runEvaluation, serializeBundle } from './runner.js';
 import type { EvalCase } from './runner.js';
 import { loadScenario } from './scenario.js';
@@ -57,6 +61,30 @@ function today(now: Date): string {
   return now.toISOString().slice(0, 10);
 }
 
+// Best-effort git call; returns fallback when git is absent or the tree is not a repository.
+function git(args: string[], root: string, fallback: string): string {
+  try {
+    return execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+  } catch {
+    return fallback;
+  }
+}
+
+function sha256File(path: string): string {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
+
+function freezeEnvironment(root: string): FreezeEnvironment {
+  return {
+    gitCommit: git(['rev-parse', 'HEAD'], root, 'unknown'),
+    gitDirty: git(['status', '--porcelain'], root, '').length > 0,
+    node: process.version,
+    os: process.platform,
+    arch: process.arch,
+    salesforceApiVersion: '67.0',
+  };
+}
+
 function loadCase(caseConfig: CaseConfig, root: string): EvalCase {
   const scenarioPath = resolve(root, caseConfig.scenario);
   const scenario = loadScenario(scenarioPath);
@@ -75,18 +103,46 @@ function writeBundle(files: Record<string, string>, outDir: string): void {
   }
 }
 
+// Scenario ids of one phase config, loading only the scenario files. Used to enforce pilot/main
+// disjointness before a run.
+function planScenarioIds(configPath: string, root: string): string[] {
+  if (!existsSync(configPath)) {
+    return [];
+  }
+  const config = JSON.parse(readFileSync(configPath, 'utf8')) as PhaseConfig;
+  return config.cases.map((caseConfig) => loadScenario(resolve(root, caseConfig.scenario)).id);
+}
+
 function runPhase(args: Args, root: string, now: Date): string {
-  const configPath = args.config ?? join(root, 'config', 'eval', `${args.phase}.json`);
+  // repeat runs the main set more times, so it reads the main config.
+  const configName = args.phase === 'repeat' ? 'main' : args.phase;
+  const configPath = args.config ?? join(root, 'config', 'eval', `${configName}.json`);
   if (!existsSync(configPath)) {
     throw new Error(`eval ${args.phase}: config not found at ${configPath}`);
   }
   const config = JSON.parse(readFileSync(configPath, 'utf8')) as PhaseConfig;
   const cases = config.cases.map((caseConfig) => loadCase(caseConfig, root));
+
+  // Main and repeat draw on the main benchmark, which must be non-empty and disjoint from pilot.
+  if (args.phase === 'main' || args.phase === 'repeat') {
+    const pilotIds = planScenarioIds(join(root, 'config', 'eval', 'pilot.json'), root);
+    assertDisjointMainPlan(
+      cases.map((evalCase) => evalCase.scenario.id),
+      pilotIds,
+    );
+  }
+
   const freezeId = args.freeze ?? `${today(now)}-${args.phase}`;
   const repeats = args.repeats ?? config.repeats ?? 2;
 
-  const model = loadPhaseModelFromPath(resolve(root, 'src', 'core', 'phases', 'phases.v67.json'));
-  const weights = loadWeights(pathToFileURL(resolve(root, 'config', 'weights.json')));
+  const phaseModelPath = resolve(root, 'src', 'core', 'phases', 'phases.v67.json');
+  const weightsPath = resolve(root, 'config', 'weights.json');
+  const model = loadPhaseModelFromPath(phaseModelPath);
+  const weights = loadWeights(pathToFileURL(weightsPath));
+  const configHashes: ConfigHashes = {
+    phaseModel: sha256File(phaseModelPath),
+    weights: sha256File(weightsPath),
+  };
 
   const bundle = runEvaluation(cases, {
     model,
@@ -95,6 +151,8 @@ function runPhase(args: Args, root: string, now: Date): string {
     repeats,
     createdAt: now.toISOString(),
     toolVersion: process.env['npm_package_version'] ?? '0.0.0',
+    environment: freezeEnvironment(root),
+    configHashes,
   });
 
   const outDir = join(root, 'results', freezeId);

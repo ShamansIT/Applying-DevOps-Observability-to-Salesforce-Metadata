@@ -9,7 +9,8 @@
 import type { MetadataComponent, MetadataDependencyRecord } from '../../ingestion/orgSnapshot.js';
 import { parseApexTrigger } from '../parse/apexParser.js';
 import { parseFlow } from '../parse/flowParser.js';
-import type { ConfidenceState, Evidence, ExecEdge, ExecNode } from '../types.js';
+import type { ConfidenceState, Evidence, ExecEdge, ExecNode, RelationshipKind } from '../types.js';
+import type { FlowReference } from '../parse/flowParser.js';
 import type { InventoryItem } from './inventory.js';
 
 // Resolve raw source body for one component, or undefined when body is unavailable offline. Keyed on
@@ -41,9 +42,21 @@ function targetId(type: string, name: string): string {
   return `${TYPE_PREFIX[type] ?? type.toLowerCase()}:${name}`;
 }
 
-// Dependency edge with rule-assigned state and evidence. Score is filled at assembly for ranking.
-function edge(from: string, to: string, state: ConfidenceState, evidence: Evidence[]): ExecEdge {
-  return { from, to, kind: 'dependency', state, score: 0, evidence };
+// Dependency edge with rule-assigned state, relationship type and evidence. Score is filled at
+// assembly for ranking.
+function edge(
+  from: string,
+  to: string,
+  relationship: RelationshipKind,
+  state: ConfidenceState,
+  evidence: Evidence[],
+): ExecEdge {
+  return { from, to, kind: 'dependency', relationship, state, score: 0, evidence };
+}
+
+// Flow record operation to relationship type: create, update and delete write; a lookup reads.
+function recordRelationship(kind: FlowReference['kind']): RelationshipKind {
+  return kind === 'recordLookup' ? 'reads' : 'writes';
 }
 
 export function extract(input: ExtractInput): ExtractResult {
@@ -97,20 +110,26 @@ function extractFlow(node: ExecNode, source: string, edges: ExecEdge[]): void {
     if (reference.kind === 'subflow' && reference.flowName) {
       // Explicit subflow call in Flow XML - confirmed reference.
       edges.push(
-        edge(node.id, targetId('Flow', reference.flowName), 'confirmed', [
+        edge(node.id, targetId('Flow', reference.flowName), 'invokes', 'confirmed', [
           { type: 'flow_xml_static', ref: node.apiName, detail: `subflow ${reference.flowName}` },
         ]),
       );
     } else if (reference.object) {
       // Explicit record reference in Flow XML - confirmed reference.
       edges.push(
-        edge(node.id, targetId('CustomObject', reference.object), 'confirmed', [
-          {
-            type: 'flow_xml_static',
-            ref: node.apiName,
-            detail: `${reference.kind} on ${reference.object}`,
-          },
-        ]),
+        edge(
+          node.id,
+          targetId('CustomObject', reference.object),
+          recordRelationship(reference.kind),
+          'confirmed',
+          [
+            {
+              type: 'flow_xml_static',
+              ref: node.apiName,
+              detail: `${reference.kind} on ${reference.object}`,
+            },
+          ],
+        ),
       );
     }
   }
@@ -124,7 +143,7 @@ function extractApex(node: ExecNode, source: string, edges: ExecEdge[]): void {
   for (const symbol of parsed.symbolRefs) {
     // Coarse symbol reference, not corroborated dependency - inferred.
     edges.push(
-      edge(node.id, targetId('ApexClass', symbol), 'inferred', [
+      edge(node.id, targetId('ApexClass', symbol), 'invokes', 'inferred', [
         { type: 'apex_static', ref: node.apiName, detail: `references ${symbol}` },
       ]),
     );
@@ -132,7 +151,7 @@ function extractApex(node: ExecNode, source: string, edges: ExecEdge[]): void {
   for (const reason of parsed.dynamic) {
     // Dynamically built target cannot be resolved statically - unresolved.
     edges.push(
-      edge(node.id, `unresolved:${node.apiName}`, 'unresolved', [
+      edge(node.id, `unresolved:${node.apiName}`, 'depends_on', 'unresolved', [
         { type: 'heuristic', ref: node.apiName, detail: reason },
       ]),
     );
@@ -157,7 +176,7 @@ function extractDependencyRecords(
     if (!from) continue;
     for (const node of from) {
       edges.push(
-        edge(node.id, targetId(record.refType, record.refName), 'confirmed', [
+        edge(node.id, targetId(record.refType, record.refName), 'depends_on', 'confirmed', [
           {
             type: 'dependency_api',
             ref: record.refName,

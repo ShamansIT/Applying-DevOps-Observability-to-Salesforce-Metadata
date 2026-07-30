@@ -82,9 +82,9 @@ npx vitest run test/evaluation/pilot.test.ts
 ```
 
 It loads `fixtures/scenarios/S01.json`, drives same core IDE drives against S01 snapshot, compares
-against hashed ground truth in `fixtures/ground-truth/S01.json`, and asserts node recall and precision
-1, edge precision 1, edge recall 0.75 (dynamic reference is missed, not guessed), ordered path
-coverage 0.889, and node phase-assignment accuracy 1.
+against hashed ground truth in `fixtures/ground-truth/S01.json`, and asserts node and edge recall and
+precision 1, relationship accuracy 1, ordered path coverage 1, and the one runtime-only reference
+(dynamic Contact SOQL) left unresolved rather than guessed - scored as correctly handled, not a miss.
 
 ## Evaluation run and statistics
 
@@ -100,10 +100,11 @@ This builds the evaluation bundle (`dist/eval/cli.mjs`), runs core over the scen
 `metrics-scenario.csv`, `metrics-aggregate.csv`, `latency.csv`, and `graphs/<id>.json`. `results/` is
 git-ignored except the committed summary.
 
-`npm run eval:main` runs the full scenario set in `config/eval/main.json`; it holds S01 until S02
-onward are authored, so append each as a `scenario` / `groundTruth` pair. `npm run eval:repeat` runs
-the same set more times for a latency distribution. `npm run eval:aggregate -- --freeze <id>` re-rolls
-an existing run's metrics without touching core.
+`npm run eval:main` runs the main benchmark in `config/eval/main.json`, which must be **disjoint from
+pilot**: S01 stays pilot-only, and `eval:main` refuses an empty set or any scenario also used in
+pilot. Append main scenarios as `scenario` / `groundTruth` pairs (S02 onward). `npm run eval:repeat`
+runs the same main set more times for a latency distribution. `npm run eval:aggregate -- --freeze
+<id>` re-rolls an existing run's metrics without touching core.
 
 Statistics live in a separate Python tool, outside vitest and the core:
 

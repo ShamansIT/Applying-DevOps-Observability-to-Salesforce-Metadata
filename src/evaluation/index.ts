@@ -7,8 +7,10 @@ export * from './groundTruth.js';
 export * from './compare.js';
 export * from './metrics.js';
 export * from './latency.js';
-export * from './ttfaf.js';
-export * from './baseline.js';
+// Optional human-study modules - not on the automated evaluation path.
+export * from './human-study/ttfaf.js';
+export * from './human-study/baseline.js';
 export * from './runScenario.js';
 export * from './runner.js';
+export * from './plan.js';
 export * from './calibration.js';

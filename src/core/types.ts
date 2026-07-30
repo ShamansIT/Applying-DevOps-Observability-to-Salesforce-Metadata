@@ -61,13 +61,18 @@ export interface ExecNode {
   excludeReason?: string; // required exactly when state is excluded
 }
 
+// How one dependency edge reads, as far as static evidence can tell. Coarse dependency records land
+// as `depends_on`; parsed writes, reads, calls and record-trigger links are more specific.
+export type RelationshipKind = 'invokes' | 'writes' | 'reads' | 'triggers' | 'depends_on';
+
 // Directed edge. phase_sequence edges come from phase model; dependency edges come from ingestion.
 // Metrics split on this - phase ordering scored on first kind, dependency precision/recall on
-// second.
+// second. Dependency edges carry a relationship type so scoring can match on it.
 export interface ExecEdge {
   from: string;
   to: string;
   kind: 'phase_sequence' | 'dependency';
+  relationship?: RelationshipKind; // set on dependency edges
   state: ConfidenceState;
   score: number;
   evidence: Evidence[];

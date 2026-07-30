@@ -22,8 +22,8 @@ import {
   validateGroundTruth,
   validateScenario,
 } from '../../src/evaluation/index.js';
-import type { ProceduralTtfafRecord } from '../../src/evaluation/ttfaf.js';
-import type { BaselineSession, IdentifiedItem } from '../../src/evaluation/baseline.js';
+import type { ProceduralTtfafRecord } from '../../src/evaluation/human-study/ttfaf.js';
+import type { BaselineSession, IdentifiedItem } from '../../src/evaluation/human-study/baseline.js';
 import type { GroundTruth } from '../../src/evaluation/groundTruth.js';
 import type { ScenarioResult } from '../../src/evaluation/metrics.js';
 import type { ComplexityLevel, Scenario } from '../../src/evaluation/scenario.js';
@@ -84,16 +84,16 @@ describe('validateScenario', () => {
 });
 
 describe('validateGroundTruth', () => {
-  it('rejects an unexpected expected state', () => {
+  it('rejects an edge without a relationship type', () => {
     const bad = {
       id: 'T',
-      edges: [{ from: 'a', to: 'b', phase: 'p', expected: 'unresolved' }],
+      edges: [{ from: 'a', to: 'b', phase: 'p' }],
     } as unknown as GroundTruth;
     expect(() => {
       validateGroundTruth(bad);
-    }).toThrow(/confirmed or inferred/);
+    }).toThrow(/relationship is not known/);
   });
-  it('accepts a full record with nodes, typed relationship and adjudication', () => {
+  it('accepts a full record with nodes, typed relationship, detectability and adjudication', () => {
     const full: GroundTruth = {
       id: 'T',
       source: 'author inspection',
@@ -102,9 +102,9 @@ describe('validateGroundTruth', () => {
         {
           from: 'a',
           to: 'b',
-          phase: 'p',
-          expected: 'confirmed',
           relationship: 'invokes',
+          phase: 'p',
+          detectability: 'static-direct',
           adjudication: 'scorable',
         },
       ],
@@ -117,16 +117,27 @@ describe('validateGroundTruth', () => {
   it('rejects an unknown relationship type', () => {
     const bad = {
       id: 'T',
-      edges: [{ from: 'a', to: 'b', phase: 'p', expected: 'confirmed', relationship: 'calls' }],
+      edges: [{ from: 'a', to: 'b', phase: 'p', relationship: 'calls' }],
     } as unknown as GroundTruth;
     expect(() => {
       validateGroundTruth(bad);
     }).toThrow(/relationship is not known/);
   });
+  it('rejects an unknown detectability value', () => {
+    const bad = {
+      id: 'T',
+      edges: [
+        { from: 'a', to: 'b', phase: 'p', relationship: 'invokes', detectability: 'psychic' },
+      ],
+    } as unknown as GroundTruth;
+    expect(() => {
+      validateGroundTruth(bad);
+    }).toThrow(/detectability is not a known value/);
+  });
   it('rejects an unknown adjudication status', () => {
     const bad = {
       id: 'T',
-      edges: [{ from: 'a', to: 'b', phase: 'p', expected: 'confirmed', adjudication: 'maybe' }],
+      edges: [{ from: 'a', to: 'b', phase: 'p', relationship: 'invokes', adjudication: 'maybe' }],
     } as unknown as GroundTruth;
     expect(() => {
       validateGroundTruth(bad);
@@ -158,10 +169,10 @@ describe('hashGroundTruth', () => {
   it('is stable regardless of key order', () => {
     const a = {
       id: 'T',
-      edges: [{ from: 'a', to: 'b', phase: 'p', expected: 'confirmed' as const }],
+      edges: [{ from: 'a', to: 'b', relationship: 'invokes' as const, phase: 'p' }],
     };
     const b = {
-      edges: [{ expected: 'confirmed' as const, to: 'b', phase: 'p', from: 'a' }],
+      edges: [{ relationship: 'invokes' as const, to: 'b', phase: 'p', from: 'a' }],
       id: 'T',
     };
     expect(hashGroundTruth(a)).toBe(hashGroundTruth(b));
@@ -169,11 +180,11 @@ describe('hashGroundTruth', () => {
   it('changes when an edge changes', () => {
     const a: GroundTruth = {
       id: 'T',
-      edges: [{ from: 'a', to: 'b', phase: 'p', expected: 'confirmed' }],
+      edges: [{ from: 'a', to: 'b', relationship: 'invokes', phase: 'p' }],
     };
     const b: GroundTruth = {
       id: 'T',
-      edges: [{ from: 'a', to: 'c', phase: 'p', expected: 'confirmed' }],
+      edges: [{ from: 'a', to: 'c', relationship: 'invokes', phase: 'p' }],
     };
     expect(hashGroundTruth(a)).not.toBe(hashGroundTruth(b));
   });
@@ -196,9 +207,12 @@ function metricsWith(id: string, f1: number, precision: number): ComparisonMetri
     precision,
     recall: 1,
     f1,
+    relationshipAccuracy: 1,
     orderedPathCoverage: 1,
-    noise: 0,
-    falseOmissionRate: 0,
+    finalEdgeNoiseRate: 0,
+    finalExpectedEdgeOmissionRate: 0,
+    runtimeOnlyExpected: 0,
+    runtimeOnlyHandled: 0,
     boundaryTotal: 0,
     boundaryAccuracy: 1,
     ambiguousExcluded: 0,

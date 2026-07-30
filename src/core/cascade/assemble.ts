@@ -61,7 +61,13 @@ function mergeEdges(edges: ExecEdge[]): ExecEdge[] {
     const existing = byKey.get(key);
     if (existing) {
       existing.evidence = dedupeEvidence([...existing.evidence, ...edge.evidence]);
-      existing.state = mergeEdgeState(existing.state, edge.state);
+      const merged = mergeEdgeState(existing.state, edge.state);
+      // Stronger-state edge also wins the relationship type, so a confirmed dependency record beats
+      // an inferred symbol reference on the same pair.
+      if (merged !== existing.state && edge.relationship !== undefined) {
+        existing.relationship = edge.relationship;
+      }
+      existing.state = merged;
     } else {
       byKey.set(key, { ...edge, evidence: dedupeEvidence(edge.evidence) });
     }

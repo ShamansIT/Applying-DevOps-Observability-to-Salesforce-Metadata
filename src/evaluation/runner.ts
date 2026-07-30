@@ -22,6 +22,22 @@ export interface EvalCase {
   truth: GroundTruth;
 }
 
+// Environment stamp for the freeze - what produced the run, so it can be reproduced or challenged.
+export interface FreezeEnvironment {
+  gitCommit: string;
+  gitDirty: boolean;
+  node: string;
+  os: string;
+  arch: string;
+  salesforceApiVersion: string;
+}
+
+// Content hashes of the frozen configuration, so a change to a config is visible in the manifest.
+export interface ConfigHashes {
+  phaseModel: string;
+  weights: string;
+}
+
 export interface RunOptions {
   model: PhaseModel;
   weights: WeightModel;
@@ -29,6 +45,8 @@ export interface RunOptions {
   repeats: number; // runs per scenario; two or more so determinism is checked
   createdAt: string; // injected clock, ISO string
   toolVersion: string;
+  environment: FreezeEnvironment;
+  configHashes: ConfigHashes;
 }
 
 export interface ScenarioManifestEntry {
@@ -42,12 +60,16 @@ export interface Manifest {
   freezeId: string;
   createdAt: string;
   toolVersion: string;
+  environment: FreezeEnvironment;
+  configHashes: ConfigHashes;
   phaseModelApiVersion: string;
   weightsProvisional: boolean;
   repeats: number;
   scenarioCount: number;
   deterministic: boolean; // every scenario byte-identical across repeats
   scenarios: ScenarioManifestEntry[];
+  // Human-authored freeze inputs - task prompts, correctness checklists, counterbalancing schedule,
+  // baseline toolset, statistical plan - are maintained apart from this generated manifest.
 }
 
 export interface ScenarioGraph {
@@ -135,6 +157,8 @@ export function runEvaluation(cases: EvalCase[], options: RunOptions): Evaluatio
     freezeId: options.freezeId,
     createdAt: options.createdAt,
     toolVersion: options.toolVersion,
+    environment: options.environment,
+    configHashes: options.configHashes,
     phaseModelApiVersion,
     weightsProvisional: options.weights.provisional,
     repeats,

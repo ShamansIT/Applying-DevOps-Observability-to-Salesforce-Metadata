@@ -1,9 +1,5 @@
 {
   "repeats": 2,
-  "cases": [
-    {
-      "scenario": "fixtures/scenarios/S01.json",
-      "groundTruth": "fixtures/ground-truth/S01.json"
-    }
-  ]
+  "_comment": "Main benchmark. Add S02+ as { scenario, groundTruth } pairs. Must be disjoint from pilot (S01); eval:main and eval:repeat refuse an empty or pilot-overlapping set.",
+  "cases": []
 }

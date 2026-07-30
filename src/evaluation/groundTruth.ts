@@ -1,19 +1,27 @@
 // GROUND_TRUTH set - evaluation side only, sole home of manualGroundTruth. Core cannot even
-// represent this, so analysis never consumes truth. Record holds what correct reconstruction should
-// reach: expected nodes and typed relationships, each with why it is there, where it came from, and
-// how it is scored (scorable, ambiguous, boundary, excluded), plus deliberate exclusions kept out of
-// scope. Ground truth is hashed before runs and hash is stored with results, so truth cannot be
-// quietly tuned to match output.
+// represent this, so analysis never consumes truth. Ground truth describes the expected world - which
+// nodes and typed relationships should exist, how detectable each is from static evidence, why it is
+// there and where it came from, and how it is scored. It does NOT prescribe the prototype's confidence
+// state: the prototype decides confirmed or inferred from its own evidence rules, and comparison scores
+// presence and detectability, not the confidence label. Ground truth is hashed before runs and the
+// hash is stored with results, so truth cannot be quietly tuned to match output.
 
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { ConfidenceState } from '../core/index.js';
+import type { RelationshipKind } from '../core/index.js';
 
-// How relationship reads. Typed so ground truth records kind of dependency, not bare edge.
-export type RelationshipType = 'invokes' | 'writes' | 'reads' | 'triggers' | 'depends_on';
+// Kept name for callers; the relationship vocabulary lives in core.
+export type RelationshipType = RelationshipKind;
 
-// How claim is scored. `scorable` counts in metrics; `ambiguous` sits out of denominator; `boundary`
-// marks edge-of-scope case handled separately; `excluded` is recorded but never scored.
+// How reachable a claim is from static metadata. `static-direct` should be caught with certainty;
+// `static-inferred` is coarser; `risk-only` is a risk signal, not a hard edge; `runtime-only` cannot
+// be established statically and correct behaviour is to leave it unresolved; `out-of-scope` is never
+// scored as a static miss.
+export type Detectability =
+  'static-direct' | 'static-inferred' | 'risk-only' | 'runtime-only' | 'out-of-scope';
+
+// How a claim is scored. `scorable` counts in metrics; `ambiguous` sits out of denominators;
+// `boundary` marks an edge-of-scope case scored apart; `excluded` is recorded but never scored.
 export type AdjudicationStatus = 'scorable' | 'ambiguous' | 'boundary' | 'excluded';
 
 // One expected node. Id follows same stable scheme reconstructed nodes use, so comparison matches by
@@ -21,23 +29,26 @@ export type AdjudicationStatus = 'scorable' | 'ambiguous' | 'boundary' | 'exclud
 export interface GroundTruthNode {
   id: string;
   phase: string;
-  type?: string; // node kind, when author pins it
-  rationale?: string; // why node belongs
-  source?: string; // where expectation comes from - metadata, docs, org inspection
-  adjudication?: AdjudicationStatus; // defaults to scorable when absent
+  type?: string;
+  expectedPresence?: boolean; // defaults to true; false marks a node that should NOT appear
+  detectability?: Detectability; // defaults to static-direct
+  rationale?: string;
+  source?: string;
+  adjudication?: AdjudicationStatus;
 }
 
-// One expected relationship. Ids follow same stable scheme reconstructed edges use. Expected state is
-// what correct reconstruction should reach.
+// One expected relationship. Ids follow same stable scheme reconstructed edges use; relationship type
+// is part of the identity, so a right pair with the wrong relationship is not a match.
 export interface GroundTruthEdge {
   from: string;
   to: string;
+  relationship: RelationshipKind;
   phase: string;
-  expected: Extract<ConfidenceState, 'confirmed' | 'inferred'>;
-  relationship?: RelationshipType; // kind of dependency, when author types it
+  expectedPresence?: boolean; // defaults to true; false marks an edge that should NOT be claimed
+  detectability?: Detectability; // defaults to static-direct
   rationale?: string;
   source?: string;
-  adjudication?: AdjudicationStatus; // defaults to scorable when absent
+  adjudication?: AdjudicationStatus;
 }
 
 // Something kept out of scope on purpose - asynchronous work, unrecoverable dynamic target - so its
@@ -52,18 +63,31 @@ export interface GroundTruth {
   nodes?: GroundTruthNode[];
   edges: GroundTruthEdge[];
   exclusions?: GroundTruthExclusion[];
-  source?: string; // provenance of record as a whole
+  source?: string;
   notes?: string;
 }
 
 const RELATIONSHIPS = new Set<string>(['invokes', 'writes', 'reads', 'triggers', 'depends_on']);
 const ADJUDICATIONS = new Set<string>(['scorable', 'ambiguous', 'boundary', 'excluded']);
+const DETECTABILITIES = new Set<string>([
+  'static-direct',
+  'static-inferred',
+  'risk-only',
+  'runtime-only',
+  'out-of-scope',
+]);
 
 function checkAdjudication(value: unknown, id: string, where: string): void {
   if (value !== undefined && !ADJUDICATIONS.has(value as string)) {
     throw new Error(
       `ground truth ${id}: ${where} adjudication must be scorable, ambiguous, boundary or excluded`,
     );
+  }
+}
+
+function checkDetectability(value: unknown, id: string, where: string): void {
+  if (value !== undefined && !DETECTABILITIES.has(value as string)) {
+    throw new Error(`ground truth ${id}: ${where} detectability is not a known value`);
   }
 }
 
@@ -78,20 +102,17 @@ export function validateGroundTruth(truth: GroundTruth): void {
     if (!node.id || !node.phase) {
       throw new Error(`ground truth ${truth.id}: node ${String(index)} missing id or phase`);
     }
+    checkDetectability(node.detectability, truth.id, `node ${String(index)}`);
     checkAdjudication(node.adjudication, truth.id, `node ${String(index)}`);
   }
   for (const [index, edge] of truth.edges.entries()) {
     if (!edge.from || !edge.to || !edge.phase) {
       throw new Error(`ground truth ${truth.id}: edge ${String(index)} missing from, to or phase`);
     }
-    if (edge.expected !== 'confirmed' && edge.expected !== 'inferred') {
-      throw new Error(
-        `ground truth ${truth.id}: edge ${String(index)} expected must be confirmed or inferred`,
-      );
-    }
-    if (edge.relationship !== undefined && !RELATIONSHIPS.has(edge.relationship)) {
+    if (!RELATIONSHIPS.has(edge.relationship)) {
       throw new Error(`ground truth ${truth.id}: edge ${String(index)} relationship is not known`);
     }
+    checkDetectability(edge.detectability, truth.id, `edge ${String(index)}`);
     checkAdjudication(edge.adjudication, truth.id, `edge ${String(index)}`);
   }
   for (const [index, exclusion] of (truth.exclusions ?? []).entries()) {

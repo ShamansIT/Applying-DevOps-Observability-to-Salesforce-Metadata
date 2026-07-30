@@ -31,6 +31,15 @@ const OPTIONS: RunOptions = {
   repeats: 2,
   createdAt: '2026-01-01T00:00:00.000Z',
   toolVersion: '0.0.1',
+  environment: {
+    gitCommit: 'test',
+    gitDirty: false,
+    node: 'v22',
+    os: 'linux',
+    arch: 'x64',
+    salesforceApiVersion: '67.0',
+  },
+  configHashes: { phaseModel: 'aaa', weights: 'bbb' },
 };
 
 describe('runEvaluation', () => {
@@ -48,8 +57,8 @@ describe('runEvaluation', () => {
     const bundle = runEvaluation([s01Case()], OPTIONS);
     expect(bundle.aggregate.overall.n).toBe(1);
     expect(bundle.results[0]?.metrics.nodeRecall).toBe(1);
-    expect(bundle.results[0]?.metrics.recall).toBe(0.75);
-    expect(bundle.results[0]?.metrics.orderedPathCoverage).toBe(0.889);
+    expect(bundle.results[0]?.metrics.recall).toBe(1);
+    expect(bundle.results[0]?.metrics.orderedPathCoverage).toBe(1);
   });
 
   it('samples skeleton latency once per repeat', () => {

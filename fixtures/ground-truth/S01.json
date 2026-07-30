@@ -47,29 +47,29 @@
     {
       "from": "apex_trigger:Account:AccountTrigger:before_triggers",
       "to": "apex_class:AccountService",
+      "relationship": "depends_on",
       "phase": "before_triggers",
-      "expected": "confirmed",
-      "relationship": "invokes",
-      "rationale": "Trigger calls AccountService; dependency record names the class, so link is certain.",
+      "detectability": "static-direct",
+      "rationale": "Dependency record names the class, so the trigger-to-class dependency is certain from static evidence.",
       "source": "MetadataComponentDependency record.",
       "adjudication": "scorable"
     },
     {
       "from": "apex_trigger:Account:AccountTrigger:after_triggers",
       "to": "apex_class:AccountService",
+      "relationship": "depends_on",
       "phase": "after_triggers",
-      "expected": "confirmed",
-      "relationship": "invokes",
-      "rationale": "Same call reached from after-trigger execution of the trigger.",
+      "detectability": "static-direct",
+      "rationale": "Same dependency reached from after-trigger execution of the trigger.",
       "source": "MetadataComponentDependency record.",
       "adjudication": "scorable"
     },
     {
       "from": "flow_after:Account:Account_After_Save",
       "to": "object:Task",
-      "phase": "after_save_flows",
-      "expected": "inferred",
       "relationship": "writes",
+      "phase": "after_save_flows",
+      "detectability": "static-direct",
       "rationale": "After-save flow creates a Task record; static flow parse names the target object.",
       "source": "Flow create-records element.",
       "adjudication": "scorable"
@@ -77,10 +77,10 @@
     {
       "from": "apex_trigger:Account:AccountTrigger:after_triggers",
       "to": "object:Contact",
-      "phase": "after_triggers",
-      "expected": "inferred",
       "relationship": "reads",
-      "rationale": "Dynamic SOQL string targets Contact; a human reading the code knows this, static analysis cannot, so the tool is expected to miss rather than guess.",
+      "phase": "after_triggers",
+      "detectability": "runtime-only",
+      "rationale": "Dynamic SOQL string targets Contact; a human reading the code knows this, static analysis cannot, so the tool is expected to leave it unresolved rather than guess.",
       "source": "Author knowledge of dynamic query string.",
       "adjudication": "scorable"
     }

@@ -6,7 +6,7 @@
 
 import type { MetadataComponent, OrgSnapshot } from '../../ingestion/orgSnapshot.js';
 import { parseFlow } from '../parse/flowParser.js';
-import type { ExecEdge, ExecNode, NodeType, PhaseKey } from '../types.js';
+import type { ExecEdge, ExecNode, NodeType, PhaseKey, RelationshipKind } from '../types.js';
 import type { SourceResolver } from './extract.js';
 
 // Materialize one referenced target: node plus its own outbound edges. Undefined when target is
@@ -123,13 +123,20 @@ export function subflowExpander(snapshot: OrgSnapshot, resolver: SourceResolver)
       for (const reference of flow.references) {
         if (reference.kind === 'subflow' && reference.flowName) {
           edges.push(
-            refEdge(targetId, `flow:${reference.flowName}`, name, `subflow ${reference.flowName}`),
+            refEdge(
+              targetId,
+              `flow:${reference.flowName}`,
+              'invokes',
+              name,
+              `subflow ${reference.flowName}`,
+            ),
           );
         } else if (reference.object) {
           edges.push(
             refEdge(
               targetId,
               `object:${reference.object}`,
+              reference.kind === 'recordLookup' ? 'reads' : 'writes',
               name,
               `${reference.kind} on ${reference.object}`,
             ),
@@ -141,11 +148,18 @@ export function subflowExpander(snapshot: OrgSnapshot, resolver: SourceResolver)
   };
 }
 
-function refEdge(from: string, to: string, ref: string, detail: string): ExecEdge {
+function refEdge(
+  from: string,
+  to: string,
+  relationship: RelationshipKind,
+  ref: string,
+  detail: string,
+): ExecEdge {
   return {
     from,
     to,
     kind: 'dependency',
+    relationship,
     state: 'unresolved',
     score: 0,
     evidence: [{ type: 'flow_xml_static', ref, detail }],
