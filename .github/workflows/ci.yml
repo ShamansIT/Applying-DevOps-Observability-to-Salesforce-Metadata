@@ -45,6 +45,11 @@ jobs:
       - name: Evaluation pilot smoke
         run: npm run eval:pilot
 
+      # Experiment harness runs its pipeline end to end offline (mutation, mock oracle, metrics,
+      # bundle). Real scratch-org runs are a separate, manually dispatched, credentialed job.
+      - name: Experiment harness self-test
+        run: npm run exp:selftest
+
       - name: No TODO(agent) left in src
         run: |
           if grep -rn "TODO(agent)" src; then

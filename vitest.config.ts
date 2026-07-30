@@ -14,6 +14,7 @@ export default defineConfig({
       include: ['src/**'],
       exclude: [
         '**/index.ts',
+        '**/cli-run.ts',
         'src/extension/index.ts',
         'src/ingestion/salesforceConnection.ts',
         'src/core/types.ts',

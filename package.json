@@ -55,7 +55,11 @@
     "eval:repeat": "npm run build:eval && node dist/eval/cli.mjs repeat --repeats 5",
     "eval:aggregate": "npm run build:eval && node dist/eval/cli.mjs aggregate",
     "eval:stats": "python scripts/stats.py",
-    "eval:stats:selftest": "python scripts/stats.py --selftest"
+    "eval:stats:selftest": "python scripts/stats.py --selftest",
+    "build:exp": "esbuild src/experiment/cli-run.ts --bundle --platform=node --format=esm --external:@salesforce/core --outfile=dist/experiment/cli.mjs",
+    "exp:selftest": "npm run build:exp && node dist/experiment/cli.mjs selftest",
+    "exp:schedule": "npm run build:exp && node dist/experiment/cli.mjs schedule",
+    "exp:power": "npm run build:exp && node dist/experiment/cli.mjs power"
   },
   "dependencies": {
     "@salesforce/core": "8.32.4",
