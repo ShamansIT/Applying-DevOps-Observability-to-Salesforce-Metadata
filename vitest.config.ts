@@ -17,6 +17,7 @@ export default defineConfig({
         '**/cli-run.ts',
         'src/experiment/childRunner.ts',
         'src/experiment/orgSession.ts',
+        'src/experiment/readinessOrg.ts',
         'src/extension/index.ts',
         'src/ingestion/salesforceConnection.ts',
         'src/core/types.ts',

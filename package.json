@@ -65,6 +65,7 @@
     "exp:walking-skeleton:org": "npm run build:exp && node dist/experiment/cli.mjs walking-skeleton:org",
     "exp:pilot:org": "npm run build:exp && node dist/experiment/cli.mjs pilot:org",
     "exp:main:org": "npm run build:exp && node dist/experiment/cli.mjs main:org",
+    "exp:readiness:org": "npm run build:exp && node dist/experiment/cli.mjs readiness:org",
     "exp:schedule": "npm run build:exp && node dist/experiment/cli.mjs schedule",
     "exp:power": "npm run build:exp && node dist/experiment/cli.mjs power"
   },

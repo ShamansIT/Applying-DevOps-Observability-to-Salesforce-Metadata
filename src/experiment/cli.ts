@@ -24,6 +24,7 @@ import type { LiveDeps } from './liveRunner.js';
 import { memoryWorkspace } from './workspace.js';
 import { buildExecutionPlan, serialiseExecutionPlan } from './executionPlan.js';
 import { runOrgSession } from './orgSession.js';
+import { runReadinessOrg } from './readinessOrg.js';
 
 // Load pinned phase model and weights by explicit path, so the bundled cli resolves them from the repo
 // and not relative to the bundle.
@@ -178,6 +179,12 @@ function orgKind(command: string): 'pilot' | 'main' | 'skeleton' {
   return 'skeleton';
 }
 
+// Value after a --flag in the argument list, or undefined.
+function flagValue(argv: string[], flag: string): string | undefined {
+  const index = argv.indexOf(flag);
+  return index >= 0 ? argv[index + 1] : undefined;
+}
+
 async function runOrgCommand(command: string, freezeId: string, devHub: string): Promise<string> {
   const kind = orgKind(command);
   const planText =
@@ -215,6 +222,21 @@ export async function main(argv: string[]): Promise<string> {
       }
       return runOrgCommand(command, freezeId, devHub);
     }
+    case 'readiness:org': {
+      const devHub = flagValue(argv, '--dev-hub');
+      if (!devHub) throw new Error('readiness:org: needs --dev-hub <alias>');
+      const runId =
+        flagValue(argv, '--run-id') ??
+        `readiness-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+      const report = await runReadinessOrg({
+        devHub,
+        runId,
+        model: phaseModel(),
+        weights: weights(),
+      });
+      const detail = report.blockers.length ? ` - ${report.blockers.join('; ')}` : '';
+      return `readiness ${runId}: ${report.decision}${detail}`;
+    }
     case 'schedule': {
       if (!arg) throw new Error('experiment schedule: needs a scenarios json path');
       const scenarios = JSON.parse(readFileSync(arg, 'utf8')) as ScenarioDescriptor[];
@@ -227,7 +249,7 @@ export async function main(argv: string[]): Promise<string> {
     }
     default:
       throw new Error(
-        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:org, main:org, schedule or power`,
+        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:org, main:org, readiness:org, schedule or power`,
       );
   }
 }
