@@ -66,6 +66,11 @@
     "exp:pilot:org": "npm run build:exp && node dist/experiment/cli.mjs pilot:org",
     "exp:main:org": "npm run build:exp && node dist/experiment/cli.mjs main:org",
     "exp:readiness:org": "npm run build:exp && node dist/experiment/cli.mjs readiness:org",
+    "exp:org:check": "npm run build:exp && node dist/experiment/cli.mjs org:check",
+    "exp:reconstruct": "npm run build:exp && node dist/experiment/cli.mjs reconstruct",
+    "exp:aggregate": "npm run build:exp && node dist/experiment/cli.mjs aggregate",
+    "exp:package": "npm run build:exp && node dist/experiment/cli.mjs package",
+    "exp:stats": "npm run build:exp && node dist/experiment/cli.mjs stats",
     "exp:schedule": "npm run build:exp && node dist/experiment/cli.mjs schedule",
     "exp:power": "npm run build:exp && node dist/experiment/cli.mjs power"
   },

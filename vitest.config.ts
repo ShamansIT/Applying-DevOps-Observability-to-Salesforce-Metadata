@@ -18,6 +18,8 @@ export default defineConfig({
         'src/experiment/childRunner.ts',
         'src/experiment/orgSession.ts',
         'src/experiment/readinessOrg.ts',
+        'src/experiment/reconstructCli.ts',
+        'src/experiment/orgCheckCli.ts',
         'src/extension/index.ts',
         'src/ingestion/salesforceConnection.ts',
         'src/core/types.ts',

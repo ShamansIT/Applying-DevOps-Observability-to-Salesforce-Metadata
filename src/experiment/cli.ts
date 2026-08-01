@@ -25,6 +25,13 @@ import { memoryWorkspace } from './workspace.js';
 import { buildExecutionPlan, serialiseExecutionPlan } from './executionPlan.js';
 import { runOrgSession } from './orgSession.js';
 import { runReadinessOrg } from './readinessOrg.js';
+import {
+  aggregateCommand,
+  packageCommand,
+  runReconstructCommand,
+  statsCommand,
+} from './reconstructCli.js';
+import { runOrgCheckCommand } from './orgCheckCli.js';
 
 // Load pinned phase model and weights by explicit path, so the bundled cli resolves them from the repo
 // and not relative to the bundle.
@@ -222,6 +229,24 @@ export async function main(argv: string[]): Promise<string> {
       }
       return runOrgCommand(command, freezeId, devHub);
     }
+    case 'reconstruct':
+      return runReconstructCommand(
+        arg ?? `reconstruct-${new Date().toISOString().replace(/[:.]/g, '-')}`,
+        phaseModel(),
+        weights(),
+      );
+    case 'aggregate': {
+      if (!arg) throw new Error('aggregate: needs a reconstruction freeze id');
+      return aggregateCommand(arg);
+    }
+    case 'package': {
+      if (!arg) throw new Error('package: needs a reconstruction freeze id');
+      return packageCommand(arg);
+    }
+    case 'stats':
+      return statsCommand();
+    case 'org:check':
+      return runOrgCheckCommand(flagValue(argv, '--dev-hub'), flagValue(argv, '--target-org'));
     case 'readiness:org': {
       const devHub = flagValue(argv, '--dev-hub');
       if (!devHub) throw new Error('readiness:org: needs --dev-hub <alias>');
@@ -249,7 +274,7 @@ export async function main(argv: string[]): Promise<string> {
     }
     default:
       throw new Error(
-        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:org, main:org, readiness:org, schedule or power`,
+        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:org, main:org, readiness:org, org:check, reconstruct, aggregate, package, stats, schedule or power`,
       );
   }
 }

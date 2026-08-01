@@ -9,8 +9,8 @@ import type { AnalysisTarget, PhaseModel, ReconstructResult, WeightModel } from 
 import type { FailureClass, FileMap, MutationDetectability } from './mutation.js';
 import { runPrototype } from './prototypeAdapter.js';
 import type { PredictionCategory, PrototypeOutcome } from './prototypeAdapter.js';
-import { runValidation } from './oracle.js';
-import type { ProcRunner, ValidationResult } from './oracle.js';
+import { runValidationPolled } from './oracle.js';
+import type { PollingEvent, ProcRunner, ValidationResult } from './oracle.js';
 import type { OrgProvisioner } from './orgProvisioner.js';
 import { snapshotFromFiles } from './snapshotBuilder.js';
 import { projectChecksum } from './project.js';
@@ -308,6 +308,7 @@ export interface ReadinessRecord {
   prototype: PrototypeOutcome;
   prototypeDeterministic: boolean;
   cliCalls: CliCall[];
+  pollingEvents: PollingEvent[]; // deploy report events when a validation was polled to a final result
   timing: ReadinessTiming;
   designExpectation: ReadinessExpectation;
   criteriaMet: boolean;
@@ -394,25 +395,26 @@ export async function runReadinessScenario(
     cleanChecksum,
   );
   try {
-    // 4-5. Validate the clean project; abort on an invalid base.
-    const cleanResult = await runValidation(
+    // 4-5. Validate the clean project, polled to a final result; abort on an invalid base.
+    const cleanPolled = await runValidationPolled(
       deps.alias,
       captured.run,
       deployOptions(clean.dir, timeoutMs),
     );
-    if (cleanResult.outcome !== 'pass') {
+    if (cleanPolled.result.outcome !== 'pass') {
       const base = {
         scenarioId: scenario.id,
         status: 'clean_invalid' as ReadinessStatus,
         cleanChecksum,
         mutatedChecksum,
         identicalBytes: true,
-        cleanOutcome: cleanResult.outcome,
+        cleanOutcome: cleanPolled.result.outcome,
         mutatedOutcome: 'not_run' as ValidationResult['outcome'],
         mutatedFailureClass: 'unknown' as ValidationResult['failureClass'],
         prototype: failedPrototype,
         prototypeDeterministic: false,
         cliCalls: captured.calls,
+        pollingEvents: cleanPolled.pollingEvents,
         timing: emptyTiming,
         designExpectation: scenario.expectation,
       };
@@ -437,15 +439,17 @@ export async function runReadinessScenario(
     };
 
     // 8. One monotonic t0, then the prototype and Salesforce validation over the same mutated bytes.
+    // The oracle is polled to a final result, so a queued deploy is not mistaken for an outcome.
     const t0 = deps.now();
-    const oraclePromise = runValidation(
+    const oraclePromise = runValidationPolled(
       deps.alias,
       captured.run,
       deployOptions(mutated.dir, timeoutMs),
     );
     const prototype = runPrototype(snapshot, scenario.target, deps.model, options);
     const prototypeDoneNs = deps.now();
-    const oracle = await oraclePromise;
+    const polled = await oraclePromise;
+    const oracle = polled.result;
     const oracleDoneNs = deps.now();
 
     // Semantic determinism over the full canonical graph, not just the category.
@@ -482,6 +486,7 @@ export async function runReadinessScenario(
       prototype: prototype.outcome,
       prototypeDeterministic: deterministic,
       cliCalls: captured.calls,
+      pollingEvents: polled.pollingEvents,
       timing,
       designExpectation: scenario.expectation,
     };
@@ -573,9 +578,11 @@ export function readinessScenarioFiles(
       }),
     ),
     [`${dir}/prototype.json`]: redact(json(record.prototype)),
-    // Salesforce command, arguments, stdout, stderr and parsed JSON live in the captured CLI calls.
-    // Dry-run deploy is synchronous, so there are no intermediate polling events.
-    [`${dir}/salesforce.json`]: redact(json({ pollingEvents: [], calls: record.cliCalls })),
+    // Salesforce command, arguments, stdout, stderr and parsed JSON live in the captured CLI calls;
+    // polling events record any deploy report follow-up when a validation was not final at once.
+    [`${dir}/salesforce.json`]: redact(
+      json({ pollingEvents: record.pollingEvents, calls: record.cliCalls }),
+    ),
   };
   if (graph) files[`${dir}/prototype-graph.json`] = redact(`${canonicalGraph(graph)}\n`);
   return files;
@@ -648,6 +655,7 @@ function errorRecord(scenario: ReadinessScenario, error: unknown): ReadinessReco
     },
     prototypeDeterministic: false,
     cliCalls: [],
+    pollingEvents: [],
     timing: { prototypeTtfafMs: 0, baselineTtfafMs: 0, leadTimeMs: 0, prototypeFirst: false },
     designExpectation: scenario.expectation,
     criteriaMet: false,

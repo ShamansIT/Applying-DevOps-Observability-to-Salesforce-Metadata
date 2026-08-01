@@ -73,6 +73,11 @@ export function apexRunArgs(alias: string, file: string): string[] {
   return ['apex', 'run', '--target-org', alias, '--file', file, '--json'];
 }
 
+// Report on a submitted deploy job, so a queued deploy can be polled to a final result.
+export function deployReportArgs(alias: string, jobId: string): string[] {
+  return ['project', 'deploy', 'report', '--job-id', jobId, '--target-org', alias, '--json'];
+}
+
 export function createScratchArgs(devHub: string, definitionFile: string, alias: string): string[] {
   return [
     'org',
@@ -300,4 +305,93 @@ export async function runValidation(
   const sourceDir = options ? 'force-app' : undefined;
   const proc = await run('sf', validateArgs(alias, sourceDir), options);
   return normaliseValidation(proc);
+}
+
+interface DeployStartJson {
+  result?: { id?: string; status?: string };
+}
+
+// A submitted deploy returns a job id; following up on it is how a queued deploy reaches a final result.
+function extractJobId(stdout: string): string | null {
+  try {
+    return (JSON.parse(stdout) as DeployStartJson).result?.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function deployStatus(stdout: string): string {
+  try {
+    return (JSON.parse(stdout) as DeployStartJson).result?.status ?? 'unknown';
+  } catch {
+    return 'unparseable';
+  }
+}
+
+export interface PollingEvent {
+  poll: number;
+  status: string;
+  outcome: Outcome;
+  actionable: boolean;
+}
+
+export interface PolledValidation {
+  result: ValidationResult; // final, or a timeout marked as retryable infrastructure
+  jobId: string | null;
+  pollCount: number;
+  pollingEvents: PollingEvent[];
+  timedOut: boolean;
+}
+
+// Run validation, then follow a job-only or pending response through deploy report to a final result.
+// A failure, success or infra fault is already final; job acceptance is not. Polling events are kept.
+export async function runValidationPolled(
+  alias: string,
+  run: ProcRunner,
+  options?: ProcOptions,
+  poll: { maxPolls?: number } = {},
+): Promise<PolledValidation> {
+  const sourceDir = options ? 'force-app' : undefined;
+  const proc = await run('sf', validateArgs(alias, sourceDir), options);
+  const first = normaliseValidation(proc);
+  const jobId = extractJobId(proc.stdout);
+
+  if (first.actionable || first.infrastructure !== 'ok') {
+    return { result: first, jobId, pollCount: 0, pollingEvents: [], timedOut: false };
+  }
+  if (!jobId) {
+    // Not actionable and no job id to follow - a pending response we cannot poll.
+    return { result: first, jobId: null, pollCount: 0, pollingEvents: [], timedOut: false };
+  }
+
+  const maxPolls = poll.maxPolls ?? 60;
+  const pollingEvents: PollingEvent[] = [];
+  for (let i = 1; i <= maxPolls; i += 1) {
+    const report = await run('sf', deployReportArgs(alias, jobId), options);
+    const result = normaliseValidation(report);
+    pollingEvents.push({
+      poll: i,
+      status: deployStatus(report.stdout),
+      outcome: result.outcome,
+      actionable: result.actionable,
+    });
+    if (result.actionable || result.infrastructure !== 'ok') {
+      return { result, jobId, pollCount: i, pollingEvents, timedOut: false };
+    }
+  }
+  return {
+    result: {
+      outcome: 'not_run',
+      failureClass: 'unknown',
+      failingComponents: [],
+      message: `deploy ${jobId} did not reach a final result in ${String(maxPolls)} polls`,
+      actionable: false,
+      infrastructure: 'retryable_failure',
+      raw: {},
+    },
+    jobId,
+    pollCount: maxPolls,
+    pollingEvents,
+    timedOut: true,
+  };
 }

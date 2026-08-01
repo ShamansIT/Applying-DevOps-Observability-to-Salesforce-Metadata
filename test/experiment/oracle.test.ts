@@ -7,6 +7,7 @@ import {
   normaliseRuntime,
   normaliseValidation,
   runValidation,
+  runValidationPolled,
   validateArgs,
 } from '../../src/experiment/oracle.js';
 import type { ProcResult } from '../../src/experiment/oracle.js';
@@ -149,5 +150,54 @@ describe('runValidation', () => {
     await runValidation('eval-org', runner, { cwd: '/work/scn', timeoutMs: 1000 });
     expect(seenArgs).toContain('--source-dir');
     expect(seenCwd).toBe('/work/scn');
+  });
+});
+
+const queued = JSON.stringify({ result: { id: '0Af000', status: 'Queued' } });
+const succeeded = JSON.stringify({ result: { success: true, status: 'Succeeded' } });
+
+function isReport(args: string[]): boolean {
+  return args[2] === 'report';
+}
+
+describe('runValidationPolled', () => {
+  it('returns at once when the first response is already final', async () => {
+    const runner = (): Promise<ProcResult> => Promise.resolve(proc(succeeded));
+    const polled = await runValidationPolled('eval-org', runner);
+    expect(polled.result.outcome).toBe('pass');
+    expect(polled.pollCount).toBe(0);
+    expect(polled.pollingEvents).toEqual([]);
+  });
+
+  it('polls a queued deploy through deploy report to a final result', async () => {
+    let reports = 0;
+    const runner = (_file: string, args: string[]): Promise<ProcResult> => {
+      if (isReport(args)) {
+        reports += 1;
+        return Promise.resolve(proc(reports >= 2 ? succeeded : queued));
+      }
+      return Promise.resolve(proc(queued));
+    };
+    const polled = await runValidationPolled('eval-org', runner, undefined, { maxPolls: 5 });
+    expect(polled.jobId).toBe('0Af000');
+    expect(polled.result.outcome).toBe('pass');
+    expect(polled.pollCount).toBe(2);
+    expect(polled.pollingEvents).toHaveLength(2);
+    expect(polled.timedOut).toBe(false);
+  });
+
+  it('times out as retryable infrastructure when the deploy never settles', async () => {
+    const runner = (): Promise<ProcResult> => Promise.resolve(proc(queued));
+    const polled = await runValidationPolled('eval-org', runner, undefined, { maxPolls: 3 });
+    expect(polled.timedOut).toBe(true);
+    expect(polled.pollCount).toBe(3);
+    expect(polled.result.infrastructure).toBe('retryable_failure');
+  });
+
+  it('treats a malformed first response as infrastructure without polling', async () => {
+    const runner = (): Promise<ProcResult> => Promise.resolve(proc('not json', 1));
+    const polled = await runValidationPolled('eval-org', runner);
+    expect(polled.pollCount).toBe(0);
+    expect(polled.result.infrastructure).toBe('retryable_failure');
   });
 });

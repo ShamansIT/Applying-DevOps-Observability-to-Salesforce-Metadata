@@ -7,14 +7,16 @@ import type { ProcRunner } from './oracle.js';
 export function childProcRunner(): ProcRunner {
   return (file, args, options) =>
     new Promise((resolve) => {
-      const bin = process.platform === 'win32' && file === 'sf' ? 'sf.cmd' : file;
+      // On Windows the Salesforce CLI is a .cmd shim, which recent Node refuses to spawn without a shell
+      // (EINVAL). Run through the shell there; args carry no spaces (paths travel via cwd), so it is safe.
+      const onWindows = process.platform === 'win32';
       execFile(
-        bin,
+        file,
         args,
         {
           maxBuffer: 32 * 1024 * 1024,
           windowsHide: true,
-          shell: false,
+          shell: onWindows,
           ...(options?.cwd ? { cwd: options.cwd } : {}),
           ...(options?.timeoutMs ? { timeout: options.timeoutMs } : {}),
           ...(options?.env ? { env: { ...process.env, ...options.env } } : {}),

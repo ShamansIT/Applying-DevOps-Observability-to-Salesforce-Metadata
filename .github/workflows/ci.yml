@@ -54,6 +54,11 @@ jobs:
       - name: Experiment walking skeleton (offline)
         run: npm run exp:walking-skeleton
 
+      # Reconstruction evaluation over the candidate register runs the real core end to end and packages
+      # metrics offline. Org-independent: it records org-execution status as not_run.
+      - name: Experiment reconstruction (offline)
+        run: npm run exp:reconstruct
+
       - name: No TODO(agent) left in src
         run: |
           if grep -rn "TODO(agent)" src; then
