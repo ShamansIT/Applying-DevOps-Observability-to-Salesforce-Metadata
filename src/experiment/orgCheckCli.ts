@@ -22,7 +22,7 @@ function resultsWritable(): boolean {
 }
 
 export async function runOrgCheckCommand(devHub?: string, targetOrg?: string): Promise<string> {
-  const template = pilotCandidates()[0]?.files ?? {};
+  const template = pilotCandidates()[0]?.cleanFiles ?? {};
   const report = await orgCheck({
     run: childProcRunner(),
     projectTemplate: template,

@@ -243,8 +243,10 @@ export async function main(argv: string[]): Promise<string> {
       if (!arg) throw new Error('package: needs a reconstruction freeze id');
       return packageCommand(arg);
     }
-    case 'stats':
-      return statsCommand();
+    case 'stats': {
+      if (!arg) throw new Error('stats: needs a reconstruction freeze id');
+      return statsCommand(arg);
+    }
     case 'org:check':
       return runOrgCheckCommand(flagValue(argv, '--dev-hub'), flagValue(argv, '--target-org'));
     case 'readiness:org': {

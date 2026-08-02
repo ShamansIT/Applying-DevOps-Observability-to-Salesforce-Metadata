@@ -166,6 +166,7 @@ function setupFailed(
     oracle,
     stages: [],
     runtimeReviewNeeded: false,
+    pollingEvents: [],
     cliCalls: [],
     timestamps: EMPTY_TIMESTAMPS,
     raceLeadsMs: [],
@@ -253,6 +254,7 @@ export async function runScenarioLive(
       combined: race.oracle,
       stages: [],
       runtimeReviewNeeded: false,
+      pollingEvents: [],
     };
 
     // Timing subset gets prototype-timing repetitions against the single observed baseline latency.
@@ -311,6 +313,7 @@ export async function runScenarioLive(
       oracle: oracle.combined,
       stages: observations(oracle),
       runtimeReviewNeeded: oracle.runtimeReviewNeeded,
+      pollingEvents: oracle.pollingEvents,
       cliCalls: captured.calls,
       timestamps: race.timestamps,
       raceLeadsMs,

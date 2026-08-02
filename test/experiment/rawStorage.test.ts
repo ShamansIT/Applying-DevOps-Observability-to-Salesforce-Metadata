@@ -48,6 +48,7 @@ function input(over: Partial<RawAttemptInput> = {}): RawAttemptInput {
       },
     ],
     runtimeReviewNeeded: false,
+    pollingEvents: [],
     cliCalls: [],
     timestamps,
     raceLeadsMs: [15],

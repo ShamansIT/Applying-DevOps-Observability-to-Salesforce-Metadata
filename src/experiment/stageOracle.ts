@@ -1,8 +1,8 @@
 // Stage-aware oracle. Runs only the stages a scenario manifest requires. Static stages take one dry-run
 // deploy; a runtime stage provisions a disposable org, deploys, probes with anonymous apex, tears down.
 
-import { apexRunArgs, deployArgs, normaliseRuntime, normaliseValidation } from './oracle.js';
-import type { ProcRunner, TestLevel, ValidationResult } from './oracle.js';
+import { apexRunArgs, normaliseRuntime, runDeployPolled } from './oracle.js';
+import type { PollingEvent, ProcRunner, TestLevel, ValidationResult } from './oracle.js';
 import type { OracleStage } from './mutation.js';
 import type { OrgProvisioner } from './orgProvisioner.js';
 import { runtimeProbe } from './runtimeProbe.js';
@@ -31,6 +31,7 @@ export interface StageOracleOutcome {
   combined: ValidationResult; // first failing stage, else the last non-runtime pass
   stages: StageResult[];
   runtimeReviewNeeded: boolean; // probe used a describe fallback the operator should check
+  pollingEvents: PollingEvent[]; // deploy report follow-ups across the stages that ran
 }
 
 function testLevelFor(stages: OracleStage[]): TestLevel {
@@ -58,27 +59,27 @@ function notRun(): ValidationResult {
   };
 }
 
-// Run the non-runtime stages: one dry-run deploy covers metadata_validation and, when required, tests.
-async function runStatic(ctx: StageContext): Promise<StageResult[]> {
-  const proc = await ctx.run(
-    'sf',
-    deployArgs(ctx.alias, {
-      dryRun: true,
-      testLevel: testLevelFor(ctx.stages),
-      sourceDir: SOURCE_DIR,
-    }),
+// Run the non-runtime stages: one dry-run deploy, polled to a final result, covers metadata_validation
+// and, when required, tests.
+async function runStatic(
+  ctx: StageContext,
+): Promise<{ results: StageResult[]; polling: PollingEvent[] }> {
+  const polled = await runDeployPolled(
+    ctx.alias,
+    ctx.run,
+    { dryRun: true, testLevel: testLevelFor(ctx.stages), sourceDir: SOURCE_DIR },
     { cwd: ctx.dir, timeoutMs: ctx.timeoutMs },
   );
-  const result = normaliseValidation(proc);
-  return ctx.stages
+  const results = ctx.stages
     .filter((stage) => stage !== 'runtime_transaction')
-    .map((stage) => ({ stage, result }));
+    .map((stage) => ({ stage, result: polled.result }));
+  return { results, polling: polled.pollingEvents };
 }
 
 // Runtime stage: fresh org, real deploy, probe, teardown. Deploy checked first - no deploy, no runtime.
 async function runRuntime(
   ctx: StageContext,
-): Promise<{ result: StageResult; reviewNeeded: boolean }> {
+): Promise<{ result: StageResult; reviewNeeded: boolean; polling: PollingEvent[] }> {
   const stage: OracleStage = 'runtime_transaction';
   if (!ctx.provisioner || !ctx.disposableAlias) {
     return {
@@ -95,6 +96,7 @@ async function runRuntime(
         },
       },
       reviewNeeded: false,
+      polling: [],
     };
   }
   const alias = ctx.disposableAlias;
@@ -114,22 +116,24 @@ async function runRuntime(
         },
       },
       reviewNeeded: false,
+      polling: [],
     };
   }
   try {
-    const deploy = normaliseValidation(
-      await ctx.run(
-        'sf',
-        deployArgs(alias, {
-          dryRun: false,
-          testLevel: testLevelFor(ctx.stages),
-          sourceDir: SOURCE_DIR,
-        }),
-        { cwd: ctx.dir, timeoutMs: ctx.timeoutMs },
-      ),
+    // Real deploy, polled to a final result, before the runtime probe.
+    const deployPolled = await runDeployPolled(
+      alias,
+      ctx.run,
+      { dryRun: false, testLevel: testLevelFor(ctx.stages), sourceDir: SOURCE_DIR },
+      { cwd: ctx.dir, timeoutMs: ctx.timeoutMs },
     );
+    const deploy = deployPolled.result;
     if (deploy.outcome === 'fail' || deploy.infrastructure !== 'ok') {
-      return { result: { stage, result: deploy }, reviewNeeded: false };
+      return {
+        result: { stage, result: deploy },
+        reviewNeeded: false,
+        polling: deployPolled.pollingEvents,
+      };
     }
     const probe = runtimeProbe(
       ctx.target.object,
@@ -142,7 +146,11 @@ async function runRuntime(
         timeoutMs: ctx.timeoutMs,
       }),
     );
-    return { result: { stage, result: runtime }, reviewNeeded: probe.requiresOperatorReview };
+    return {
+      result: { stage, result: runtime },
+      reviewNeeded: probe.requiresOperatorReview,
+      polling: deployPolled.pollingEvents,
+    };
   } finally {
     await ctx.provisioner.remove(alias);
   }
@@ -151,17 +159,21 @@ async function runRuntime(
 // Run the required oracle stages and reduce to a combined outcome.
 export async function runStageOracle(ctx: StageContext): Promise<StageOracleOutcome> {
   const results: StageResult[] = [];
+  const pollingEvents: PollingEvent[] = [];
   let runtimeReviewNeeded = false;
 
   const hasStatic = ctx.stages.some((s) => s !== 'runtime_transaction');
   if (hasStatic) {
-    results.push(...(await runStatic(ctx)));
+    const staticStage = await runStatic(ctx);
+    results.push(...staticStage.results);
+    pollingEvents.push(...staticStage.polling);
   }
   if (ctx.stages.includes('runtime_transaction')) {
     const runtime = await runRuntime(ctx);
     results.push(runtime.result);
+    pollingEvents.push(...runtime.polling);
     runtimeReviewNeeded = runtime.reviewNeeded;
   }
 
-  return { combined: worst(results), stages: results, runtimeReviewNeeded };
+  return { combined: worst(results), stages: results, runtimeReviewNeeded, pollingEvents };
 }

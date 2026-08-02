@@ -77,6 +77,25 @@ describe('runStageOracle', () => {
     expect(removed).toEqual(['eval-org-scn']);
   });
 
+  it('polls a queued deploy to a final result on the static path (pilot/main)', async () => {
+    const queued = JSON.stringify({ result: { id: '0Af0X', status: 'Queued' } });
+    let reports = 0;
+    const run = (_file: string, args: string[]): Promise<ProcResult> => {
+      if (args[2] === 'report') {
+        reports += 1;
+        return Promise.resolve({
+          code: reports >= 2 ? 0 : 1,
+          stdout: reports >= 2 ? PASS : queued,
+          stderr: '',
+        });
+      }
+      return Promise.resolve({ code: 1, stdout: queued, stderr: '' });
+    };
+    const outcome = await runStageOracle(context(['metadata_validation'], run));
+    expect(outcome.combined.outcome).toBe('pass');
+    expect(outcome.pollingEvents.length).toBeGreaterThanOrEqual(1);
+  });
+
   it('stops at a failed deploy before running the runtime probe', async () => {
     const apexCalls: number[] = [];
     const run = (_file: string, args: string[]): Promise<ProcResult> => {

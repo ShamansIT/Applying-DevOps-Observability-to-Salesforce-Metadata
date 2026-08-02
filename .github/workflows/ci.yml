@@ -55,9 +55,15 @@ jobs:
         run: npm run exp:walking-skeleton
 
       # Reconstruction evaluation over the candidate register runs the real core end to end and packages
-      # metrics offline. Org-independent: it records org-execution status as not_run.
-      - name: Experiment reconstruction (offline)
-        run: npm run exp:reconstruct
+      # metrics offline, then re-rolls descriptive stats and builds a checksummed archive. Candidate
+      # semantic validation and pilot/main deploy polling are covered by the vitest gate above.
+      # Org-independent: it records org-execution status as not_run.
+      - name: Experiment reconstruction chain (offline)
+        run: |
+          npm run exp:reconstruct -- ci-recon
+          npm run exp:aggregate -- ci-recon
+          npm run exp:stats -- ci-recon
+          npm run exp:package -- ci-recon
 
       - name: No TODO(agent) left in src
         run: |

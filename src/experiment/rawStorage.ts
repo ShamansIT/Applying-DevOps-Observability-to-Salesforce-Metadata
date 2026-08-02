@@ -3,7 +3,7 @@
 // Redacted before write, so no token, auth URL, username or path reaches a raw file.
 
 import type { FileMap, OracleStage } from './mutation.js';
-import type { ObservedFailureClass, Outcome, ValidationResult } from './oracle.js';
+import type { ObservedFailureClass, Outcome, PollingEvent, ValidationResult } from './oracle.js';
 import type { PredictionCategory, PrototypeOutcome } from './prototypeAdapter.js';
 import type { RaceTimestamps } from './race.js';
 import type { DesignExpectation } from './scenarioGenerator.js';
@@ -53,6 +53,7 @@ export interface RawAttemptRecord {
     combined: { outcome: Outcome; failureClass: ObservedFailureClass; message: string };
     stages: StageObservation[];
     runtimeReviewNeeded: boolean;
+    pollingEvents: PollingEvent[];
   };
   cliCalls: CliCall[];
   timingEvents: Record<string, string>; // nanosecond marks as strings, so bigints serialise
@@ -72,6 +73,7 @@ export interface RawAttemptInput {
   oracle: ValidationResult;
   stages: StageObservation[];
   runtimeReviewNeeded: boolean;
+  pollingEvents: PollingEvent[];
   cliCalls: CliCall[];
   timestamps: RaceTimestamps;
   raceLeadsMs: number[];
@@ -111,6 +113,7 @@ export function buildRawAttempt(input: RawAttemptInput): RawAttemptRecord {
       },
       stages: input.stages,
       runtimeReviewNeeded: input.runtimeReviewNeeded,
+      pollingEvents: input.pollingEvents,
     },
     cliCalls: input.cliCalls,
     timingEvents: timingEvents(input.timestamps),

@@ -343,16 +343,16 @@ export interface PolledValidation {
   timedOut: boolean;
 }
 
-// Run validation, then follow a job-only or pending response through deploy report to a final result.
-// A failure, success or infra fault is already final; job acceptance is not. Polling events are kept.
-export async function runValidationPolled(
+// Run a deploy command, then follow a job-only or pending response through deploy report to a final
+// result. A failure, success or infra fault is already final; job acceptance is not. Polling events kept.
+async function pollDeploy(
   alias: string,
   run: ProcRunner,
-  options?: ProcOptions,
-  poll: { maxPolls?: number } = {},
+  initialArgs: string[],
+  options: ProcOptions | undefined,
+  poll: { maxPolls?: number },
 ): Promise<PolledValidation> {
-  const sourceDir = options ? 'force-app' : undefined;
-  const proc = await run('sf', validateArgs(alias, sourceDir), options);
+  const proc = await run('sf', initialArgs, options);
   const first = normaliseValidation(proc);
   const jobId = extractJobId(proc.stdout);
 
@@ -394,4 +394,27 @@ export async function runValidationPolled(
     pollingEvents,
     timedOut: true,
   };
+}
+
+// Dry-run validation, polled to a final result. options carry cwd for the materialised scenario.
+export async function runValidationPolled(
+  alias: string,
+  run: ProcRunner,
+  options?: ProcOptions,
+  poll: { maxPolls?: number } = {},
+): Promise<PolledValidation> {
+  const sourceDir = options ? 'force-app' : undefined;
+  return pollDeploy(alias, run, validateArgs(alias, sourceDir), options, poll);
+}
+
+// Any deploy (dry-run or real, chosen test level), polled to a final result. Used by the stage oracle,
+// so the pilot and main paths never mistake job acceptance for an outcome.
+export async function runDeployPolled(
+  alias: string,
+  run: ProcRunner,
+  deploy: DeployOptions,
+  options?: ProcOptions,
+  poll: { maxPolls?: number } = {},
+): Promise<PolledValidation> {
+  return pollDeploy(alias, run, deployArgs(alias, deploy), options, poll);
 }
