@@ -33,3 +33,6 @@ Thumbs.db
 
 # Architecture decision records (excluded from the repo)
 docs/ADR/
+
+# Frozen pilot plan written by exp:pilot:freeze-plan
+/pilot-plan.*.json

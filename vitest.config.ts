@@ -20,6 +20,7 @@ export default defineConfig({
         'src/experiment/readinessOrg.ts',
         'src/experiment/reconstructCli.ts',
         'src/experiment/orgCheckCli.ts',
+        'src/experiment/pilotOrg.ts',
         'src/extension/index.ts',
         'src/ingestion/salesforceConnection.ts',
         'src/core/types.ts',

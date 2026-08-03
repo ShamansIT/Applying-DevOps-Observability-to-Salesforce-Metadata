@@ -64,6 +64,7 @@ jobs:
           npm run exp:aggregate -- ci-recon
           npm run exp:stats -- ci-recon
           npm run exp:package -- ci-recon
+          npm run exp:pilot:freeze-plan -- --run-id ci-pilot --seed 1
 
       - name: No TODO(agent) left in src
         run: |

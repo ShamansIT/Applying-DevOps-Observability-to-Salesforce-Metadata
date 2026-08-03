@@ -32,6 +32,8 @@ import {
   statsCommand,
 } from './reconstructCli.js';
 import { runOrgCheckCommand } from './orgCheckCli.js';
+import { buildPilotPlan, pilotEntries, serialisePilotPlan } from './pilot.js';
+import { currentGitCommit, runPilotOrg } from './pilotOrg.js';
 
 // Load pinned phase model and weights by explicit path, so the bundled cli resolves them from the repo
 // and not relative to the bundle.
@@ -218,17 +220,49 @@ export async function main(argv: string[]): Promise<string> {
       return walkingSkeleton();
     case 'freeze-plan':
       return freezePlan(arg === 'pilot' ? 'pilot' : 'main', seed);
-    case 'walking-skeleton:org':
-    case 'pilot:org':
-    case 'main:org': {
-      const kind = orgKind(command);
-      const freezeId = arg ?? `${new Date().toISOString().slice(0, 10)}-${kind}`;
+    case 'walking-skeleton:org': {
+      const freezeId = arg ?? `${new Date().toISOString().slice(0, 10)}-skeleton`;
       const devHub = seedArg;
       if (!devHub) {
         throw new Error(`${command}: needs a Dev Hub alias, e.g. -- <freeze-id> <dev-hub-alias>`);
       }
       return runOrgCommand(command, freezeId, devHub);
     }
+    case 'pilot:freeze-plan': {
+      const runId = flagValue(argv, '--run-id') ?? `pilot-${new Date().toISOString().slice(0, 10)}`;
+      const seedValue = Number(flagValue(argv, '--seed') ?? '1');
+      const plan = buildPilotPlan(pilotEntries(), runId, seedValue);
+      const path = resolve(process.cwd(), `pilot-plan.${runId}.json`);
+      writeFileSync(path, serialisePilotPlan(plan), 'utf8');
+      return `pilot:freeze-plan: wrote ${path}, ${String(plan.items.length)} scenarios, register ${plan.registerHash.slice(0, 12)}`;
+    }
+    case 'pilot:org': {
+      const runId = flagValue(argv, '--run-id');
+      const devHub = flagValue(argv, '--dev-hub');
+      if (!runId || !devHub) {
+        throw new Error('pilot:org: needs --run-id <id> --dev-hub <alias> [--resume]');
+      }
+      const planPath = resolve(process.cwd(), `pilot-plan.${runId}.json`);
+      if (!existsSync(planPath)) {
+        throw new Error(
+          `pilot:org: no frozen plan at ${planPath}; run exp:pilot:freeze-plan first`,
+        );
+      }
+      return runPilotOrg({
+        runId,
+        devHub,
+        planText: readFileSync(planPath, 'utf8'),
+        resume: argv.includes('--resume'),
+        gitCommit: currentGitCommit(),
+        model: phaseModel(),
+        weights: weights(),
+      });
+    }
+    case 'main:freeze-plan':
+    case 'main:org':
+      throw new Error(
+        `${command}: the main benchmark is blocked until a reviewed pilot authorises it`,
+      );
     case 'reconstruct':
       return runReconstructCommand(
         arg ?? `reconstruct-${new Date().toISOString().replace(/[:.]/g, '-')}`,
@@ -276,7 +310,7 @@ export async function main(argv: string[]): Promise<string> {
     }
     default:
       throw new Error(
-        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:org, main:org, readiness:org, org:check, reconstruct, aggregate, package, stats, schedule or power`,
+        `experiment: unknown command '${command ?? ''}', expected selftest, generate, validate-plan, freeze-plan, walking-skeleton, walking-skeleton:org, pilot:freeze-plan, pilot:org, readiness:org, org:check, reconstruct, aggregate, package, stats, schedule or power`,
       );
   }
 }

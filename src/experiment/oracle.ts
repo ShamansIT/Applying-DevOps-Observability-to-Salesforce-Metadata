@@ -6,6 +6,7 @@
 // responses with no org. Real org runs are the caller's; nothing here fabricates an outcome.
 
 import type { FailureClass } from './mutation.js';
+import type { NanoClock } from './race.js';
 
 export interface ProcResult {
   code: number;
@@ -330,6 +331,7 @@ function deployStatus(stdout: string): string {
 
 export interface PollingEvent {
   poll: number;
+  tsNs: string; // monotonic experiment clock mark, or '0' when no clock is supplied
   status: string;
   outcome: Outcome;
   actionable: boolean;
@@ -340,7 +342,13 @@ export interface PolledValidation {
   jobId: string | null;
   pollCount: number;
   pollingEvents: PollingEvent[];
+  firstActionablePoll: number | null; // poll index of first actionable feedback; 0 if immediate
   timedOut: boolean;
+}
+
+export interface PollOptions {
+  maxPolls?: number;
+  now?: NanoClock; // monotonic clock to timestamp each polling event
 }
 
 // Run a deploy command, then follow a job-only or pending response through deploy report to a final
@@ -350,33 +358,52 @@ async function pollDeploy(
   run: ProcRunner,
   initialArgs: string[],
   options: ProcOptions | undefined,
-  poll: { maxPolls?: number },
+  poll: PollOptions,
 ): Promise<PolledValidation> {
+  const mark = (): string => (poll.now ? poll.now().toString() : '0');
   const proc = await run('sf', initialArgs, options);
   const first = normaliseValidation(proc);
   const jobId = extractJobId(proc.stdout);
 
   if (first.actionable || first.infrastructure !== 'ok') {
-    return { result: first, jobId, pollCount: 0, pollingEvents: [], timedOut: false };
+    // Immediate final result: first-actionable coincides with completion.
+    return {
+      result: first,
+      jobId,
+      pollCount: 0,
+      pollingEvents: [],
+      firstActionablePoll: first.actionable ? 0 : null,
+      timedOut: false,
+    };
   }
   if (!jobId) {
     // Not actionable and no job id to follow - a pending response we cannot poll.
-    return { result: first, jobId: null, pollCount: 0, pollingEvents: [], timedOut: false };
+    return {
+      result: first,
+      jobId: null,
+      pollCount: 0,
+      pollingEvents: [],
+      firstActionablePoll: null,
+      timedOut: false,
+    };
   }
 
   const maxPolls = poll.maxPolls ?? 60;
   const pollingEvents: PollingEvent[] = [];
+  let firstActionablePoll: number | null = null;
   for (let i = 1; i <= maxPolls; i += 1) {
     const report = await run('sf', deployReportArgs(alias, jobId), options);
     const result = normaliseValidation(report);
+    if (firstActionablePoll === null && result.actionable) firstActionablePoll = i;
     pollingEvents.push({
       poll: i,
+      tsNs: mark(),
       status: deployStatus(report.stdout),
       outcome: result.outcome,
       actionable: result.actionable,
     });
     if (result.actionable || result.infrastructure !== 'ok') {
-      return { result, jobId, pollCount: i, pollingEvents, timedOut: false };
+      return { result, jobId, pollCount: i, pollingEvents, firstActionablePoll, timedOut: false };
     }
   }
   return {
@@ -392,6 +419,7 @@ async function pollDeploy(
     jobId,
     pollCount: maxPolls,
     pollingEvents,
+    firstActionablePoll,
     timedOut: true,
   };
 }
@@ -401,7 +429,7 @@ export async function runValidationPolled(
   alias: string,
   run: ProcRunner,
   options?: ProcOptions,
-  poll: { maxPolls?: number } = {},
+  poll: PollOptions = {},
 ): Promise<PolledValidation> {
   const sourceDir = options ? 'force-app' : undefined;
   return pollDeploy(alias, run, validateArgs(alias, sourceDir), options, poll);
@@ -414,7 +442,7 @@ export async function runDeployPolled(
   run: ProcRunner,
   deploy: DeployOptions,
   options?: ProcOptions,
-  poll: { maxPolls?: number } = {},
+  poll: PollOptions = {},
 ): Promise<PolledValidation> {
   return pollDeploy(alias, run, deployArgs(alias, deploy), options, poll);
 }

@@ -51,3 +51,12 @@ results/          structured prototype outputs, run metadata, metric CSVs
 
 Auth is delegated to user's `sf` CLI or `@salesforce/core` connection; nothing stores credentials.
 All queries are read-only.
+
+## Evaluation workflow
+
+Offline (no org, runs in CI): `exp:reconstruct` -> `exp:aggregate` -> `exp:stats` -> `exp:package` over
+the nine candidate scenarios. Real-org (operator, needs a Dev Hub): `exp:org:check` -> `exp:readiness:org`
+(R01-R03) -> `exp:pilot:freeze-plan` -> `exp:pilot:org` (the nine candidates, metadata-validation only).
+The `main` benchmark is blocked until a reviewed pilot authorises it. No real-org value is fabricated;
+unmeasured fields stay `not_run`. See docs/EXPERIMENT.md for scope, commands and threats to validity, and
+docs/RUNBOOK.md for the prototype demo.

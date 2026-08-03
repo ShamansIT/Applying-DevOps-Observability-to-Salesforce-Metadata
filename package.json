@@ -66,6 +66,7 @@
     "exp:pilot:org": "npm run build:exp && node dist/experiment/cli.mjs pilot:org",
     "exp:main:org": "npm run build:exp && node dist/experiment/cli.mjs main:org",
     "exp:readiness:org": "npm run build:exp && node dist/experiment/cli.mjs readiness:org",
+    "exp:pilot:freeze-plan": "npm run build:exp && node dist/experiment/cli.mjs pilot:freeze-plan",
     "exp:org:check": "npm run build:exp && node dist/experiment/cli.mjs org:check",
     "exp:reconstruct": "npm run build:exp && node dist/experiment/cli.mjs reconstruct",
     "exp:aggregate": "npm run build:exp && node dist/experiment/cli.mjs aggregate",

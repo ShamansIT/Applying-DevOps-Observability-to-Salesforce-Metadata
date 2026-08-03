@@ -2,11 +2,12 @@
 // report descriptive stats, validate and archive the bundle. Excluded from the coverage gate.
 
 import { createHash } from 'node:crypto';
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { gzipSync } from 'node:zlib';
 import type { PhaseModel, WeightModel } from '../core/index.js';
+import type { FileMap } from './mutation.js';
+import { buildArchive, packageManifest, validateBundle } from './packaging.js';
 import { pilotCandidates } from './pilotCandidates.js';
 import { hrtimeClock } from './race.js';
 import {
@@ -97,7 +98,7 @@ export function aggregateCommand(freezeId: string): string {
   return `aggregate ${freezeId}: re-rolled descriptive stats over ${String(runs.length)} scenario(s)`;
 }
 
-const ARTEFACTS = new Set(['validation-report.json']);
+const ARTEFACTS = new Set(['validation-report.json', 'package-manifest.json']);
 function isArtefact(rel: string): boolean {
   return ARTEFACTS.has(rel) || rel.endsWith('.bundle.json.gz') || rel.endsWith('.bundle.sha256');
 }
@@ -106,7 +107,7 @@ function isArtefact(rel: string): boolean {
 // validation report. Gzipped JSON, so no external tar; a mismatch is reported, not silently repackaged.
 export function packageCommand(freezeId: string): string {
   const dir = join(process.cwd(), 'results', 'reconstruct', freezeId);
-  const files: Record<string, string> = {};
+  const files: FileMap = {};
   const walk = (rel: string): void => {
     for (const entry of readdirSync(join(dir, rel), { withFileTypes: true })) {
       const childRel = rel ? `${rel}/${entry.name}` : entry.name;
@@ -116,40 +117,41 @@ export function packageCommand(freezeId: string): string {
   };
   walk('');
 
-  // Validate every checksummed file against checksums.sha256.
-  const expected = new Map<string, string>();
-  for (const line of (files['checksums.sha256'] ?? '').split('\n')) {
-    const match = /^([0-9a-f]{64})\s+(.+)$/.exec(line.trim());
-    if (match?.[1] && match[2]) expected.set(match[2], match[1]);
-  }
-  const mismatches: string[] = [];
-  for (const [path, hash] of expected) {
-    const actual = createHash('sha256')
-      .update(files[path] ?? '')
-      .digest('hex');
-    if (actual !== hash) mismatches.push(path);
-  }
-  const report = {
-    freezeId,
-    checkedFiles: expected.size,
-    mismatches,
-    valid: mismatches.length === 0,
-  };
+  // Validate first; always record the report, but never archive an invalid or tampered bundle.
+  const validation = validateBundle(files);
   writeFileSync(
     join(dir, 'validation-report.json'),
-    `${JSON.stringify(report, null, 2)}\n`,
+    `${JSON.stringify({ freezeId, ...validation }, null, 2)}\n`,
+    'utf8',
+  );
+  if (!validation.valid) {
+    const detail = [
+      validation.mismatches.length ? `mismatched: ${validation.mismatches.join(', ')}` : '',
+      validation.unlisted.length ? `unlisted: ${validation.unlisted.join(', ')}` : '',
+    ]
+      .filter(Boolean)
+      .join('; ');
+    throw new Error(`package ${freezeId}: bundle invalid - ${detail}`);
+  }
+
+  // Refuse to overwrite an existing archive - a completed package is immutable.
+  const archive = buildArchive(freezeId, files);
+  if (existsSync(join(dir, archive.name))) {
+    throw new Error(`package ${freezeId}: archive already exists, refusing to overwrite`);
+  }
+  writeFileSync(join(dir, archive.name), archive.bytes);
+  writeFileSync(
+    join(dir, `${freezeId}.bundle.sha256`),
+    `${archive.sha256}  ${archive.name}\n`,
+    'utf8',
+  );
+  writeFileSync(
+    join(dir, 'package-manifest.json'),
+    packageManifest(freezeId, files, archive),
     'utf8',
   );
 
-  // Immutable compressed archive: deterministic gzipped JSON of the bundle, plus its SHA-256.
-  const payload = Buffer.from(`${JSON.stringify({ freezeId, files })}\n`, 'utf8');
-  const archive = gzipSync(payload, { level: 9 });
-  const archiveName = `${freezeId}.bundle.json.gz`;
-  writeFileSync(join(dir, archiveName), archive);
-  const archiveSha = createHash('sha256').update(archive).digest('hex');
-  writeFileSync(join(dir, `${freezeId}.bundle.sha256`), `${archiveSha}  ${archiveName}\n`, 'utf8');
-
-  return `package ${freezeId}: ${String(expected.size)} file(s) validated ${report.valid ? 'ok' : `MISMATCH (${String(mismatches.length)})`}, archive sha256 ${archiveSha.slice(0, 12)}`;
+  return `package ${freezeId}: ${String(validation.checkedFiles)} file(s) validated ok, archive sha256 ${archive.sha256.slice(0, 12)}`;
 }
 
 // Descriptive statistics over a reconstruction run - median, IQR, seeded bootstrap CI, determinism and

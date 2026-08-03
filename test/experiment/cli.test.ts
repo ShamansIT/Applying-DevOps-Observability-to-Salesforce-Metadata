@@ -34,6 +34,7 @@ describe('experiment cli', () => {
 
   it('refuses a live org command without a Dev Hub alias', async () => {
     await expect(main(['walking-skeleton:org', 'freeze-01'])).rejects.toThrow(/Dev Hub/);
-    await expect(main(['pilot:org', 'freeze-01'])).rejects.toThrow(/Dev Hub/);
+    await expect(main(['pilot:org', '--run-id', 'x'])).rejects.toThrow(/--dev-hub/);
+    await expect(main(['main:org'])).rejects.toThrow(/blocked/);
   });
 });

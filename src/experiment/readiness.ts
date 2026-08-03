@@ -20,6 +20,8 @@ import { capturingRunner } from './rawStorage.js';
 import type { CliCall } from './rawStorage.js';
 import type { NanoClock } from './race.js';
 import { experimentChecksums, redact } from './storage.js';
+import { compareRepetitions } from './semanticDeterminism.js';
+import type { DeterminismResult } from './semanticDeterminism.js';
 
 export type ReadinessId = 'R01' | 'R02' | 'R03';
 
@@ -28,7 +30,7 @@ export type ReadinessId = 'R01' | 'R02' | 'R03';
 export type PrototypeExpectation = 'no_concern' | 'blocking' | 'risk_or_unresolved';
 
 export interface ReadinessManifest {
-  scenarioId: ReadinessId;
+  scenarioId: string;
   operation: string;
   changedFiles: string[];
   changedFileHashes: Record<string, string>; // sha256 of new content, or 'deleted'
@@ -46,7 +48,7 @@ export interface ReadinessExpectation {
 }
 
 export interface ReadinessScenario {
-  id: ReadinessId;
+  id: string;
   title: string;
   target: AnalysisTarget;
   cleanFiles: FileMap;
@@ -283,6 +285,7 @@ export interface ReadinessDeps {
   now: NanoClock;
   alias: string; // shared scratch org alias
   timeoutMs?: number;
+  prototypeReps?: number; // semantic-determinism repetitions, default 3
   scenarios?: ReadinessScenario[];
 }
 
@@ -297,7 +300,7 @@ export interface ReadinessTiming {
 }
 
 export interface ReadinessRecord {
-  scenarioId: ReadinessId;
+  scenarioId: string;
   status: ReadinessStatus;
   cleanChecksum: string;
   mutatedChecksum: string;
@@ -307,6 +310,8 @@ export interface ReadinessRecord {
   mutatedFailureClass: ValidationResult['failureClass'];
   prototype: PrototypeOutcome;
   prototypeDeterministic: boolean;
+  prototypeRepetitionHashes: string[]; // one canonical hash per determinism repetition
+  prototypeMismatch: DeterminismResult['mismatch']; // first differing aspect, or null
   cliCalls: CliCall[];
   pollingEvents: PollingEvent[]; // deploy report events when a validation was polled to a final result
   timing: ReadinessTiming;
@@ -400,6 +405,7 @@ export async function runReadinessScenario(
       deps.alias,
       captured.run,
       deployOptions(clean.dir, timeoutMs),
+      { now: deps.now },
     );
     if (cleanPolled.result.outcome !== 'pass') {
       const base = {
@@ -413,6 +419,8 @@ export async function runReadinessScenario(
         mutatedFailureClass: 'unknown' as ValidationResult['failureClass'],
         prototype: failedPrototype,
         prototypeDeterministic: false,
+        prototypeRepetitionHashes: [],
+        prototypeMismatch: null,
         cliCalls: captured.calls,
         pollingEvents: cleanPolled.pollingEvents,
         timing: emptyTiming,
@@ -445,6 +453,7 @@ export async function runReadinessScenario(
       deps.alias,
       captured.run,
       deployOptions(mutated.dir, timeoutMs),
+      { now: deps.now },
     );
     const prototype = runPrototype(snapshot, scenario.target, deps.model, options);
     const prototypeDoneNs = deps.now();
@@ -452,12 +461,16 @@ export async function runReadinessScenario(
     const oracle = polled.result;
     const oracleDoneNs = deps.now();
 
-    // Semantic determinism over the full canonical graph, not just the category.
-    const second = runPrototype(snapshot, scenario.target, deps.model, options);
-    const deterministic =
-      prototype.result !== undefined &&
-      second.result !== undefined &&
-      canonicalGraph(prototype.result) === canonicalGraph(second.result);
+    // Full semantic determinism: run the prototype a few times and compare whole canonical graphs -
+    // nodes, edges, relationships, phases, states, evidence and risk - not just the prediction category.
+    const reps = deps.prototypeReps ?? 3;
+    const repResults: ReconstructResult[] = prototype.result ? [prototype.result] : [];
+    for (let i = repResults.length; i < reps; i += 1) {
+      const rep = runPrototype(snapshot, scenario.target, deps.model, options).result;
+      if (rep) repResults.push(rep);
+    }
+    const determinism = compareRepetitions(repResults);
+    const deterministic = determinism.deterministic;
 
     const prototypeTtfafMs = msBetween(t0, prototypeDoneNs);
     const baselineTtfafMs = msBetween(t0, oracleDoneNs);
@@ -485,6 +498,8 @@ export async function runReadinessScenario(
       mutatedFailureClass: oracle.failureClass,
       prototype: prototype.outcome,
       prototypeDeterministic: deterministic,
+      prototypeRepetitionHashes: determinism.hashes,
+      prototypeMismatch: determinism.mismatch,
       cliCalls: captured.calls,
       pollingEvents: polled.pollingEvents,
       timing,
@@ -572,6 +587,8 @@ export function readinessScenarioFiles(
         mutatedFailureClass: record.mutatedFailureClass,
         prototypePrediction: record.prototype.predictionCategory,
         prototypeDeterministic: record.prototypeDeterministic,
+        prototypeRepetitionHashes: record.prototypeRepetitionHashes,
+        prototypeMismatch: record.prototypeMismatch,
         timing: record.timing,
         criteriaMet: record.criteriaMet,
         reasons: record.reasons,
@@ -654,6 +671,8 @@ function errorRecord(scenario: ReadinessScenario, error: unknown): ReadinessReco
       error: message,
     },
     prototypeDeterministic: false,
+    prototypeRepetitionHashes: [],
+    prototypeMismatch: null,
     cliCalls: [],
     pollingEvents: [],
     timing: { prototypeTtfafMs: 0, baselineTtfafMs: 0, leadTimeMs: 0, prototypeFirst: false },
