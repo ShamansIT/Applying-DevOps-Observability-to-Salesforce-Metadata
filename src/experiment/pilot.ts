@@ -3,7 +3,8 @@
 
 import { createHash } from 'node:crypto';
 import { hashGroundTruth } from '../evaluation/groundTruth.js';
-import type { OracleStage } from './mutation.js';
+import type { FileMap, OracleStage } from './mutation.js';
+import { validateBundle } from './packaging.js';
 import { pilotCandidates } from './pilotCandidates.js';
 import type { Candidate } from './reconstructionEval.js';
 import type { ReadinessManifest, ReadinessScenario } from './readiness.js';
@@ -151,6 +152,47 @@ export interface RunFingerprint {
   gitCommit: string;
   registerHash: string;
   planHash: string;
+}
+
+export interface AttemptReusability {
+  reusable: boolean;
+  reason: string;
+}
+
+// On resume, reuse a scenario only if complete, checksummed, every file matches and none unlisted. A
+// partial, corrupt or tampered attempt is rerun, never skipped.
+export function attemptReusable(scenarioFiles: FileMap): AttemptReusability {
+  const attempt = scenarioFiles['attempt.json'];
+  if (attempt === undefined) return { reusable: false, reason: 'no attempt.json' };
+  let status: string | undefined;
+  try {
+    status = (JSON.parse(attempt) as { status?: string }).status;
+  } catch {
+    return { reusable: false, reason: 'attempt.json is corrupt' };
+  }
+  if (status !== 'complete')
+    return { reusable: false, reason: `attempt status ${status ?? 'unknown'}` };
+  if (scenarioFiles['checksums.sha256'] === undefined) {
+    return { reusable: false, reason: 'no checksums.sha256' };
+  }
+  const validation = validateBundle(scenarioFiles);
+  if (!validation.valid) return { reusable: false, reason: 'checksum mismatch or unlisted file' };
+  return { reusable: true, reason: 'complete and checksum-verified' };
+}
+
+// A run directory may only be resumed when it carries a well-formed run-fingerprint.json.
+export function hasValidFingerprint(text: string | undefined): boolean {
+  if (text === undefined) return false;
+  try {
+    const fingerprint = JSON.parse(text) as Partial<RunFingerprint>;
+    return (
+      typeof fingerprint.gitCommit === 'string' &&
+      typeof fingerprint.registerHash === 'string' &&
+      typeof fingerprint.planHash === 'string'
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function planHash(plan: PilotPlan): string {

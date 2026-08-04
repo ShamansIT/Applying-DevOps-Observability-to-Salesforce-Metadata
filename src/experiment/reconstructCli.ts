@@ -16,7 +16,7 @@ import {
   runReconstructionSuite,
 } from './reconstructionEval.js';
 import type { StoredRun } from './reconstructionEval.js';
-import { writeImmutableBundle } from './storage.js';
+import { experimentChecksums, writeImmutableBundle } from './storage.js';
 
 function gitCommit(): string {
   try {
@@ -95,6 +95,7 @@ export function aggregateCommand(freezeId: string): string {
     `${JSON.stringify(descriptiveFromStored(runs), null, 2)}\n`,
     'utf8',
   );
+  finaliseChecksums(dir);
   return `aggregate ${freezeId}: re-rolled descriptive stats over ${String(runs.length)} scenario(s)`;
 }
 
@@ -103,10 +104,8 @@ function isArtefact(rel: string): boolean {
   return ARTEFACTS.has(rel) || rel.endsWith('.bundle.json.gz') || rel.endsWith('.bundle.sha256');
 }
 
-// Validate the bundle against its checksums, then write a deterministic gzip archive, its sha256 and a
-// validation report. Gzipped JSON, so no external tar; a mismatch is reported, not silently repackaged.
-export function packageCommand(freezeId: string): string {
-  const dir = join(process.cwd(), 'results', 'reconstruct', freezeId);
+// Read every bundle file bar the packaging artefacts into a map, keyed by relative path.
+function readBundle(dir: string): FileMap {
   const files: FileMap = {};
   const walk = (rel: string): void => {
     for (const entry of readdirSync(join(dir, rel), { withFileTypes: true })) {
@@ -116,6 +115,22 @@ export function packageCommand(freezeId: string): string {
     }
   };
   walk('');
+  return files;
+}
+
+// Recompute checksums.sha256 over the whole bundle, so aggregate and stats outputs are covered before
+// packaging. Not weakened - package still catches a file tampered or added after this.
+function finaliseChecksums(dir: string): void {
+  const files = readBundle(dir);
+  delete files['checksums.sha256'];
+  writeFileSync(join(dir, 'checksums.sha256'), experimentChecksums(files), 'utf8');
+}
+
+// Validate the bundle against its checksums, then write a deterministic gzip archive, its sha256 and a
+// validation report. Gzipped JSON, so no external tar; a mismatch is reported, not silently repackaged.
+export function packageCommand(freezeId: string): string {
+  const dir = join(process.cwd(), 'results', 'reconstruct', freezeId);
+  const files = readBundle(dir);
 
   // Validate first; always record the report, but never archive an invalid or tampered bundle.
   const validation = validateBundle(files);
@@ -164,6 +179,7 @@ export function statsCommand(freezeId: string): string {
     `${JSON.stringify(summary, null, 2)}\n`,
     'utf8',
   );
+  finaliseChecksums(dir);
   const f1 = summary.metrics['f1'];
   const f1Text = f1
     ? `f1 median ${String(f1.median)} [${String(f1.ci95Low)}, ${String(f1.ci95High)}]`

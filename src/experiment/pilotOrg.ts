@@ -1,17 +1,32 @@
 // Real-org pilot driver. Runs the nine candidates through the readiness lifecycle on one shared scratch
 // org (metadata validation), checksumming each attempt as it completes. --resume continues only when
-// commit, register and plan match, never overwriting a completed attempt. Needs a Dev Hub - off the gate.
+// commit, register and plan match, never overwriting a completed attempt. Needs Dev Hub - off the gate.
 
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import type { PhaseModel, WeightModel } from '../core/index.js';
 import { childProcRunner } from './childRunner.js';
 import { experimentChecksums } from './storage.js';
 import type { FileMap } from './mutation.js';
 import { cliProvisioner } from './orgProvisioner.js';
-import { orderByPlan, parsePilotPlan, pilotEntries, planHash, resumeAllowed } from './pilot.js';
-import type { PilotEntry, RunFingerprint } from './pilot.js';
+import {
+  attemptReusable,
+  hasValidFingerprint,
+  orderByPlan,
+  parsePilotPlan,
+  pilotEntries,
+  planHash,
+  resumeAllowed,
+} from './pilot.js';
+import type { RunFingerprint } from './pilot.js';
 import { pilotSummary, pilotSummaryFiles } from './pilotSummary.js';
 import { hrtimeClock } from './race.js';
 import { readinessScenarioFiles, runReadinessScenario } from './readiness.js';
@@ -46,15 +61,13 @@ export interface PilotOrgConfig {
   weights: WeightModel;
 }
 
-// A scenario already has a completed valid attempt on disk - never rerun or overwrite it.
-function alreadyComplete(root: string, scenarioId: string): boolean {
-  const attempt = join(root, scenarioId, 'attempt.json');
-  if (!existsSync(attempt)) return false;
-  try {
-    return (JSON.parse(readFileSync(attempt, 'utf8')) as { status?: string }).status === 'complete';
-  } catch {
-    return false;
+// Read one scenario directory into a file map, so its attempt can be checksum-verified for reuse.
+function readScenarioDir(dir: string): FileMap {
+  const files: FileMap = {};
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isFile()) files[entry.name] = readFileSync(join(dir, entry.name), 'utf8');
   }
+  return files;
 }
 
 export async function runPilotOrg(config: PilotOrgConfig): Promise<string> {
@@ -68,13 +81,20 @@ export async function runPilotOrg(config: PilotOrgConfig): Promise<string> {
     planHash: planHash(plan),
   };
 
-  // Resume gate: an existing run must match commit, register and plan, or the resume is refused.
+  // Resume gate: an existing run must carry a valid fingerprint that matches commit, register and plan.
   const savedPath = join(root, 'run-fingerprint.json');
-  if (config.resume && existsSync(savedPath)) {
-    const saved = JSON.parse(readFileSync(savedPath, 'utf8')) as RunFingerprint;
-    const gate = resumeAllowed(saved, fingerprint);
-    if (!gate.allowed) throw new Error(`pilot:org resume refused - ${gate.reason}`);
-  } else if (existsSync(root) && !config.resume) {
+  if (config.resume) {
+    if (existsSync(root)) {
+      const savedText = existsSync(savedPath) ? readFileSync(savedPath, 'utf8') : undefined;
+      if (!hasValidFingerprint(savedText)) {
+        throw new Error(
+          `pilot:org: ${root} exists without a valid run-fingerprint.json; cannot resume`,
+        );
+      }
+      const gate = resumeAllowed(JSON.parse(savedText ?? '{}') as RunFingerprint, fingerprint);
+      if (!gate.allowed) throw new Error(`pilot:org resume refused - ${gate.reason}`);
+    }
+  } else if (existsSync(root)) {
     throw new Error(`pilot:org: ${root} exists; pass --resume to continue it`);
   }
   atomicWrite(root, { 'run-fingerprint.json': `${JSON.stringify(fingerprint, null, 2)}\n` });
@@ -108,16 +128,24 @@ export async function runPilotOrg(config: PilotOrgConfig): Promise<string> {
       prototypeReps: 3,
     };
     for (const entry of ordered) {
-      if (config.resume && alreadyComplete(root, entry.candidate.id)) {
-        records.push(readExistingRecord(root, entry));
-        continue;
+      const scenarioDir = join(root, entry.candidate.id);
+      if (config.resume && existsSync(scenarioDir)) {
+        const existing = readScenarioDir(scenarioDir);
+        if (attemptReusable(existing).reusable) {
+          records.push(JSON.parse(existing['record.json'] ?? '{}') as ReadinessRecord);
+          continue;
+        }
       }
       const record = await runReadinessScenario(entry.scenario, deps);
       records.push(record);
-      // Write and checksum the attempt the moment it completes.
-      const files = readinessScenarioFiles(entry.scenario, record, null);
+      // Write and checksum the attempt the moment it completes - strip the scenario prefix first, so the
+      // checksums list the same paths that land on disk.
+      const files = stripDir(
+        readinessScenarioFiles(entry.scenario, record, null),
+        entry.candidate.id,
+      );
       files['checksums.sha256'] = experimentChecksums(files);
-      atomicWrite(join(root, entry.candidate.id), stripDir(files, entry.candidate.id));
+      atomicWrite(scenarioDir, files);
     }
   } finally {
     await provisioner.remove(alias);
@@ -137,10 +165,4 @@ function stripDir(files: FileMap, scenarioId: string): FileMap {
     out[path.startsWith(`${scenarioId}/`) ? path.slice(scenarioId.length + 1) : path] = content;
   }
   return out;
-}
-
-function readExistingRecord(root: string, entry: PilotEntry): ReadinessRecord {
-  return JSON.parse(
-    readFileSync(join(root, entry.candidate.id, 'attempt.json'), 'utf8'),
-  ) as ReadinessRecord;
 }

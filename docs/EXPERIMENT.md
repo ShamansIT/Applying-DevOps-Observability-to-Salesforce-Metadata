@@ -46,7 +46,10 @@ Order: `org:check` -> `readiness:org` -> review the bundle -> (READY) adjudicate
 `pilot:freeze-plan` -> `pilot:org`. `main:*` is blocked until a reviewed pilot authorises it. Real runs
 are the operator's; nothing here fabricates an org outcome (org-derived fields stay `not_run`), and none
 of this runs in CI. `exp:package` refuses to archive an invalid or tampered bundle and never overwrites
-an existing archive.
+an existing archive. Each pilot attempt is written and checksummed on the spot; a pilot bundle is
+packaged only **after the first real pilot** produces attempts - CI never fabricates a pilot bundle.
+Full reconstruction metrics stay the primary offline evaluation (`exp:reconstruct`); the pilot reports
+determinism, not reconstruction.
 
 ## Common blockers
 

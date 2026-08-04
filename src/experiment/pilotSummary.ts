@@ -1,5 +1,5 @@
 // Pilot summary templates. Reduces per-scenario records to completion, timing, detection, exception and
-// reconstruction summaries. Timing is one paired observation per scenario; org fields stay not_run. Pure.
+// determinism summaries. Reconstruction metrics stay in exp:reconstruct; org fields stay not_run. Pure.
 
 import type { FileMap } from './mutation.js';
 import type { ReadinessRecord } from './readiness.js';
@@ -45,7 +45,7 @@ export interface PilotSummary {
     leadMedianMs: number;
     leadIqrMs: number;
   };
-  reconstruction: { scenarios: number; deterministic: number };
+  determinism: { scenarios: number; deterministic: number };
   exceptions: { scenarioId: string; status: string; reasons: string[] }[];
 }
 
@@ -98,7 +98,7 @@ export function pilotSummary(runId: string, records: ReadinessRecord[]): PilotSu
       leadMedianMs: Math.round(median(leads) * 1000) / 1000,
       leadIqrMs: Math.round((quantile(leads, 0.75) - quantile(leads, 0.25)) * 1000) / 1000,
     },
-    reconstruction: {
+    determinism: {
       scenarios: records.length,
       deterministic: records.filter((r) => r.prototypeDeterministic).length,
     },
@@ -114,7 +114,7 @@ export function pilotSummaryFiles(summary: PilotSummary): FileMap {
     'summary/completion.json': `${JSON.stringify(summary.completion, null, 2)}\n`,
     'summary/detection.json': `${JSON.stringify(summary.detection, null, 2)}\n`,
     'summary/timing.json': `${JSON.stringify(summary.timing, null, 2)}\n`,
-    'summary/reconstruction.json': `${JSON.stringify(summary.reconstruction, null, 2)}\n`,
+    'summary/determinism.json': `${JSON.stringify(summary.determinism, null, 2)}\n`,
     'summary/exceptions.json': `${JSON.stringify(summary.exceptions, null, 2)}\n`,
   };
 }

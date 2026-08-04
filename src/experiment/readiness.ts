@@ -294,7 +294,9 @@ export type ReadinessStatus =
 
 export interface ReadinessTiming {
   prototypeTtfafMs: number;
-  baselineTtfafMs: number;
+  baselineTtfafMs: number; // Salesforce TTFAF - time to first actionable oracle feedback, not completion
+  oracleFirstActionableMs: number;
+  oracleCompletedMs: number; // final validation completion, distinct from TTFAF
   leadTimeMs: number;
   prototypeFirst: boolean;
 }
@@ -381,6 +383,8 @@ export async function runReadinessScenario(
   const emptyTiming: ReadinessTiming = {
     prototypeTtfafMs: 0,
     baselineTtfafMs: 0,
+    oracleFirstActionableMs: 0,
+    oracleCompletedMs: 0,
     leadTimeMs: 0,
     prototypeFirst: false,
   };
@@ -473,10 +477,19 @@ export async function runReadinessScenario(
     const deterministic = determinism.deterministic;
 
     const prototypeTtfafMs = msBetween(t0, prototypeDoneNs);
-    const baselineTtfafMs = msBetween(t0, oracleDoneNs);
+    const oracleCompletedMs = msBetween(t0, oracleDoneNs);
+    // First actionable oracle feedback - a polled event's timestamp, or completion for an immediate
+    // response. TTFAF is this, never final completion.
+    const firstActionable = polled.pollingEvents.find((event) => event.actionable);
+    const oracleFirstActionableMs = firstActionable
+      ? msBetween(t0, BigInt(firstActionable.tsNs))
+      : oracleCompletedMs;
+    const baselineTtfafMs = oracleFirstActionableMs;
     const timing: ReadinessTiming = {
       prototypeTtfafMs,
       baselineTtfafMs,
+      oracleFirstActionableMs,
+      oracleCompletedMs,
       leadTimeMs: Math.round((baselineTtfafMs - prototypeTtfafMs) * 1000) / 1000,
       prototypeFirst: prototypeTtfafMs <= baselineTtfafMs,
     };
@@ -595,6 +608,8 @@ export function readinessScenarioFiles(
       }),
     ),
     [`${dir}/prototype.json`]: redact(json(record.prototype)),
+    // The full record, so a resume can rebuild the summary without rerunning the scenario.
+    [`${dir}/record.json`]: redact(json(record)),
     // Salesforce command, arguments, stdout, stderr and parsed JSON live in the captured CLI calls;
     // polling events record any deploy report follow-up when a validation was not final at once.
     [`${dir}/salesforce.json`]: redact(
@@ -675,7 +690,14 @@ function errorRecord(scenario: ReadinessScenario, error: unknown): ReadinessReco
     prototypeMismatch: null,
     cliCalls: [],
     pollingEvents: [],
-    timing: { prototypeTtfafMs: 0, baselineTtfafMs: 0, leadTimeMs: 0, prototypeFirst: false },
+    timing: {
+      prototypeTtfafMs: 0,
+      baselineTtfafMs: 0,
+      oracleFirstActionableMs: 0,
+      oracleCompletedMs: 0,
+      leadTimeMs: 0,
+      prototypeFirst: false,
+    },
     designExpectation: scenario.expectation,
     criteriaMet: false,
     reasons: [`threw: ${message}`],
