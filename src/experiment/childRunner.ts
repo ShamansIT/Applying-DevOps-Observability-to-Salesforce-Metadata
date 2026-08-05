@@ -8,7 +8,10 @@ export function childProcRunner(): ProcRunner {
   return (file, args, options) =>
     new Promise((resolve) => {
       // On Windows the Salesforce CLI is a .cmd shim, which recent Node refuses to spawn without a shell
-      // (EINVAL). Run through the shell there; args carry no spaces (paths travel via cwd), so it is safe.
+      // (EINVAL). Run through the shell there. This trips DEP0190 (shell + args array), but the args are a
+      // fixed internal allowlist ('sf', deploy/org subcommands, flags) with no spaces or user-controlled
+      // shell metacharacters - paths travel via cwd - so there is no injection surface. Reworking this is
+      // outside the cleanup fix and would need its own Windows child-spawn validation, so it stays as is.
       const onWindows = process.platform === 'win32';
       execFile(
         file,

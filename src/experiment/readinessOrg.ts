@@ -11,7 +11,7 @@ import { cliProvisioner } from './orgProvisioner.js';
 import { hrtimeClock } from './race.js';
 import { readinessScenarios, runReadiness } from './readiness.js';
 import type { ReadinessReport } from './readiness.js';
-import { nodeWorkspace } from './workspace.js';
+import { nodeWorkspace, safeRemove } from './workspace.js';
 
 // Atomic per-file writer: write a .tmp sibling then rename, so a crash never leaves a half-written file.
 function atomicWriter(root: string): (files: FileMap) => void {
@@ -66,6 +66,7 @@ export async function runReadinessOrg(config: ReadinessOrgConfig): Promise<Readi
       write,
     );
   } finally {
-    workspace.remove(sessionDir);
+    // Hardened, non-masking session teardown - a permanent cleanup failure never overwrites the report.
+    safeRemove(workspace, sessionDir);
   }
 }

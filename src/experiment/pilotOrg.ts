@@ -31,7 +31,7 @@ import { pilotSummary, pilotSummaryFiles } from './pilotSummary.js';
 import { hrtimeClock } from './race.js';
 import { readinessScenarioFiles, runReadinessScenario } from './readiness.js';
 import type { ReadinessDeps, ReadinessRecord } from './readiness.js';
-import { nodeWorkspace } from './workspace.js';
+import { nodeWorkspace, safeRemove } from './workspace.js';
 
 function atomicWrite(root: string, files: FileMap): void {
   for (const [rel, content] of Object.entries(files)) {
@@ -149,7 +149,9 @@ export async function runPilotOrg(config: PilotOrgConfig): Promise<string> {
     }
   } finally {
     await provisioner.remove(alias);
-    workspace.remove(sessionDir);
+    // Session teardown must never mask the run result; a permanent cleanup failure is swallowed here (the
+    // hardened remove already retries transient Windows locks).
+    safeRemove(workspace, sessionDir);
   }
 
   const summary = pilotSummary(config.runId, records);

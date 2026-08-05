@@ -5,7 +5,7 @@ import { deployArgs, normaliseValidation } from './oracle.js';
 import type { Outcome, ProcRunner } from './oracle.js';
 import { projectChecksum } from './project.js';
 import type { TopologyInstance } from './topologyGenerator.js';
-import { materialiseVerified } from './workspace.js';
+import { materialiseVerified, safeRemove } from './workspace.js';
 import type { Workspace } from './workspace.js';
 
 export interface CleanTopologyDeps {
@@ -95,6 +95,7 @@ export async function validateCleanTopology(
       componentsComplete,
     };
   } finally {
-    if (!deps.keepWorkspace) deps.workspace.remove(material.dir);
+    // Non-masking teardown - a permanent cleanup failure never overwrites this topology check.
+    if (!deps.keepWorkspace) safeRemove(deps.workspace, material.dir);
   }
 }

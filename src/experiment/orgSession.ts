@@ -22,7 +22,7 @@ import {
 } from './scenarioGenerator.js';
 import { benchmarkQuality } from './benchmarkQuality.js';
 import { buildExperimentBundle, writeImmutableBundle } from './storage.js';
-import { nodeWorkspace } from './workspace.js';
+import { nodeWorkspace, safeRemove } from './workspace.js';
 
 export interface OrgSessionDeps {
   model: PhaseModel;
@@ -161,6 +161,7 @@ export async function runOrgSession(
     return `${config.kind}:org ${config.freezeId}: ${String(batch.runs.length)}/${String(scenarios.length)} complete, ${String(exceptions.length)} exception(s), ${String(batch.infrastructureFailures.length)} infra failure(s)`;
   } finally {
     await provisioner.remove(sharedAlias);
-    workspace.remove(sessionDir);
+    // Hardened, non-masking session teardown - a permanent cleanup failure never overwrites the summary.
+    safeRemove(workspace, sessionDir);
   }
 }

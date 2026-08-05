@@ -17,7 +17,7 @@ import type { NanoClock, RaceTiming, RaceTimestamps } from './race.js';
 import { snapshotFromFiles } from './snapshotBuilder.js';
 import type { GeneratedScenario } from './scenarioGenerator.js';
 import type { ScenarioRun } from './experimentMetrics.js';
-import { materialiseVerified } from './workspace.js';
+import { materialiseVerified, safeRemove } from './workspace.js';
 import type { Workspace } from './workspace.js';
 import { runStageOracle } from './stageOracle.js';
 import type { StageOracleOutcome } from './stageOracle.js';
@@ -322,7 +322,8 @@ export async function runScenarioLive(
     });
     return { ...attempt, comparison, raw };
   } finally {
-    if (!deps.keepWorkspace) deps.workspace.remove(material.dir);
+    // Non-masking teardown - a permanent cleanup failure never overwrites this attempt's result.
+    if (!deps.keepWorkspace) safeRemove(deps.workspace, material.dir);
   }
 }
 

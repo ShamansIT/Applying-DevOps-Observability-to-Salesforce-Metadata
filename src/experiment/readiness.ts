@@ -14,8 +14,8 @@ import type { PollingEvent, ProcRunner, ValidationResult } from './oracle.js';
 import type { OrgProvisioner } from './orgProvisioner.js';
 import { snapshotFromFiles } from './snapshotBuilder.js';
 import { projectChecksum } from './project.js';
-import { materialiseVerified } from './workspace.js';
-import type { Workspace } from './workspace.js';
+import { combineCleanup, materialiseVerified, safeRemove } from './workspace.js';
+import type { CleanupResult, Workspace } from './workspace.js';
 import { capturingRunner } from './rawStorage.js';
 import type { CliCall } from './rawStorage.js';
 import type { NanoClock } from './race.js';
@@ -318,6 +318,10 @@ export interface ReadinessRecord {
   pollingEvents: PollingEvent[]; // deploy report events when a validation was polled to a final result
   timing: ReadinessTiming;
   designExpectation: ReadinessExpectation;
+  // Workspace teardown, classified apart from the semantic result. A cleanup failure never overwrites the
+  // prototype, Salesforce or timing outputs; it is surfaced here and in the reasons, never as a failure of
+  // the prototype.
+  workspaceCleanup: CleanupResult;
   criteriaMet: boolean;
   reasons: string[]; // why criteriaMet is false, empty when met
 }
@@ -366,6 +370,10 @@ function assess(
   if (record.timing.prototypeTtfafMs < 0 || record.timing.baselineTtfafMs < 0) {
     reasons.push('timing marks are not monotonic');
   }
+  // Infrastructure teardown - kept distinct from the prototype/oracle/semantic outcome, but still visible.
+  if (!record.workspaceCleanup.ok) {
+    reasons.push(`workspace cleanup failed: ${record.workspaceCleanup.error ?? 'unknown'}`);
+  }
   return reasons;
 }
 
@@ -379,6 +387,9 @@ export async function runReadinessScenario(
   const captured = capturingRunner(deps.procRunner);
   const cleanChecksum = projectChecksum(scenario.cleanFiles);
   const mutatedChecksum = projectChecksum(scenario.mutatedFiles);
+  // Teardown results accumulate here; a cleanup failure is recorded, never thrown, so it can neither abort
+  // the scenario nor be misread as a prototype failure.
+  const cleanup: CleanupResult[] = [];
 
   const emptyTiming: ReadinessTiming = {
     prototypeTtfafMs: 0,
@@ -403,37 +414,39 @@ export async function runReadinessScenario(
     scenario.cleanFiles,
     cleanChecksum,
   );
+  let cleanPolled: Awaited<ReturnType<typeof runValidationPolled>>;
   try {
     // 4-5. Validate the clean project, polled to a final result; abort on an invalid base.
-    const cleanPolled = await runValidationPolled(
+    cleanPolled = await runValidationPolled(
       deps.alias,
       captured.run,
       deployOptions(clean.dir, timeoutMs),
       { now: deps.now },
     );
-    if (cleanPolled.result.outcome !== 'pass') {
-      const base = {
-        scenarioId: scenario.id,
-        status: 'clean_invalid' as ReadinessStatus,
-        cleanChecksum,
-        mutatedChecksum,
-        identicalBytes: true,
-        cleanOutcome: cleanPolled.result.outcome,
-        mutatedOutcome: 'not_run' as ValidationResult['outcome'],
-        mutatedFailureClass: 'unknown' as ValidationResult['failureClass'],
-        prototype: failedPrototype,
-        prototypeDeterministic: false,
-        prototypeRepetitionHashes: [],
-        prototypeMismatch: null,
-        cliCalls: captured.calls,
-        pollingEvents: cleanPolled.pollingEvents,
-        timing: emptyTiming,
-        designExpectation: scenario.expectation,
-      };
-      return { ...base, criteriaMet: false, reasons: assess(scenario, base) };
-    }
   } finally {
-    deps.workspace.remove(clean.dir);
+    cleanup.push(safeRemove(deps.workspace, clean.dir));
+  }
+  if (cleanPolled.result.outcome !== 'pass') {
+    const base = {
+      scenarioId: scenario.id,
+      status: 'clean_invalid' as ReadinessStatus,
+      cleanChecksum,
+      mutatedChecksum,
+      identicalBytes: true,
+      cleanOutcome: cleanPolled.result.outcome,
+      mutatedOutcome: 'not_run' as ValidationResult['outcome'],
+      mutatedFailureClass: 'unknown' as ValidationResult['failureClass'],
+      prototype: failedPrototype,
+      prototypeDeterministic: false,
+      prototypeRepetitionHashes: [],
+      prototypeMismatch: null,
+      cliCalls: captured.calls,
+      pollingEvents: cleanPolled.pollingEvents,
+      timing: emptyTiming,
+      designExpectation: scenario.expectation,
+      workspaceCleanup: combineCleanup(cleanup),
+    };
+    return { ...base, criteriaMet: false, reasons: assess(scenario, base) };
   }
 
   // 6-7. Materialise and checksum-verify the mutated project.
@@ -443,6 +456,7 @@ export async function runReadinessScenario(
     scenario.mutatedFiles,
     mutatedChecksum,
   );
+  let base: Omit<ReadinessRecord, 'criteriaMet' | 'reasons'>;
   try {
     const snapshot = snapshotFromFiles(scenario.mutatedFiles);
     const options = {
@@ -500,13 +514,13 @@ export async function runReadinessScenario(
         ? 'infrastructure_failed'
         : 'complete';
 
-    const base = {
+    base = {
       scenarioId: scenario.id,
       status,
       cleanChecksum,
       mutatedChecksum,
       identicalBytes: mutated.checksum === mutatedChecksum,
-      cleanOutcome: 'pass' as ValidationResult['outcome'],
+      cleanOutcome: 'pass',
       mutatedOutcome: oracle.outcome,
       mutatedFailureClass: oracle.failureClass,
       prototype: prototype.outcome,
@@ -517,15 +531,19 @@ export async function runReadinessScenario(
       pollingEvents: polled.pollingEvents,
       timing,
       designExpectation: scenario.expectation,
-    };
-    return {
-      ...base,
-      criteriaMet: assess(scenario, base).length === 0,
-      reasons: assess(scenario, base),
+      workspaceCleanup: { ok: true }, // provisional; finalised after teardown below
     };
   } finally {
-    deps.workspace.remove(mutated.dir);
+    // Semantic execution is already captured in `base`; teardown here can only add a cleanup result, never
+    // overwrite the prototype/oracle/timing outputs.
+    cleanup.push(safeRemove(deps.workspace, mutated.dir));
   }
+  const full = { ...base, workspaceCleanup: combineCleanup(cleanup) };
+  return {
+    ...full,
+    criteriaMet: assess(scenario, full).length === 0,
+    reasons: assess(scenario, full),
+  };
 }
 
 // The full prototype reconstruction for a scenario's mutated project, for raw storage.
@@ -603,6 +621,7 @@ export function readinessScenarioFiles(
         prototypeRepetitionHashes: record.prototypeRepetitionHashes,
         prototypeMismatch: record.prototypeMismatch,
         timing: record.timing,
+        workspaceCleanup: record.workspaceCleanup,
         criteriaMet: record.criteriaMet,
         reasons: record.reasons,
       }),
@@ -699,6 +718,8 @@ function errorRecord(scenario: ReadinessScenario, error: unknown): ReadinessReco
       prototypeFirst: false,
     },
     designExpectation: scenario.expectation,
+    // Cleanup no longer throws (safeRemove), so an error here is a semantic/setup failure, not teardown.
+    workspaceCleanup: { ok: true },
     criteriaMet: false,
     reasons: [`threw: ${message}`],
   };

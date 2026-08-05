@@ -18,6 +18,42 @@ function sanitise(label: string): string {
   return label.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || 'scn';
 }
 
+// Windows holds a directory handle briefly after a child process exits - the sf CLI, a file indexer or
+// antivirus - so a first delete throws EPERM/EBUSY/ENOTEMPTY. These are the transient codes to retry.
+const TRANSIENT_CLEANUP = new Set(['EPERM', 'EBUSY', 'ENOTEMPTY', 'EMFILE', 'ENFILE']);
+
+export interface RetryOptions {
+  maxRetries?: number;
+  retryDelayMs?: number;
+  sleep?: (ms: number) => void; // injected for tests; default blocks without a busy loop
+}
+
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+// Bounded retry over a transient teardown failure. Finite attempts and a finite delay - a directory that
+// never frees raises the last error rather than looping. A non-transient error is raised at once.
+export function removeWithRetry(
+  remove: (dir: string) => void,
+  dir: string,
+  options: RetryOptions = {},
+): void {
+  const maxRetries = options.maxRetries ?? 10;
+  const retryDelayMs = options.retryDelayMs ?? 100;
+  const sleep = options.sleep ?? sleepSync;
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      remove(dir);
+      return;
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (attempt >= maxRetries || code === undefined || !TRANSIENT_CLEANUP.has(code)) throw error;
+      sleep(retryDelayMs);
+    }
+  }
+}
+
 // Real filesystem workspace under the OS temp root. Used by the live org commands.
 export function nodeWorkspace(root = tmpdir()): Workspace {
   return {
@@ -27,9 +63,34 @@ export function nodeWorkspace(root = tmpdir()): Workspace {
     },
     read: (dir) => (existsSync(dir) ? readProjectFiles(dir) : {}),
     remove: (dir) => {
-      rmSync(dir, { recursive: true, force: true });
+      removeWithRetry((target) => {
+        rmSync(target, { recursive: true, force: true });
+      }, dir);
     },
   };
+}
+
+export interface CleanupResult {
+  ok: boolean;
+  error?: string;
+}
+
+// Remove a workspace without letting a teardown failure abort or reclassify the work already produced.
+// The caller records the returned result; a permanent failure stays visible, never silently swallowed.
+export function safeRemove(workspace: Workspace, dir: string): CleanupResult {
+  try {
+    workspace.remove(dir);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
+// Merge several cleanup results into one - ok only when every removal succeeded, else the joined errors.
+export function combineCleanup(results: CleanupResult[]): CleanupResult {
+  const failed = results.filter((r) => !r.ok);
+  if (failed.length === 0) return { ok: true };
+  return { ok: false, error: failed.map((r) => r.error ?? 'unknown').join('; ') };
 }
 
 // In-memory workspace: same contract, no filesystem. Deterministic directory ids, so the offline
@@ -72,7 +133,7 @@ export function materialiseVerified(
   workspace.write(dir, files);
   const checksum = projectChecksum(workspace.read(dir));
   if (checksum !== expectedChecksum) {
-    workspace.remove(dir);
+    safeRemove(workspace, dir); // keep the mismatch error visible even if teardown fails
     throw new Error(
       `materialise ${label}: on-disk checksum ${checksum} does not match expected ${expectedChecksum}`,
     );
