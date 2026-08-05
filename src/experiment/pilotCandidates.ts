@@ -60,13 +60,16 @@ function flow(
     ? `  <subflows>\n    <name>Call_${subflow}</name>\n    <flowName>${subflow}</flowName>\n  </subflows>\n`
     : '';
   return {
-    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n  <start>\n    <object>${obj}</object>\n    <recordTriggerType>Update</recordTriggerType>\n    <triggerType>RecordBeforeSave</triggerType>\n  </start>\n  <${op.tag}>\n    <name>${op.tag}_${name}</name>\n    <object>${op.object}</object>\n  </${op.tag}>\n${subflowXml}</Flow>\n`,
+    // <label> is a required Flow field - omitting it fails clean metadata validation with "Required field
+    // is missing: label". The parser ignores it, so ground truth is unchanged.
+    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n  <start>\n    <object>${obj}</object>\n    <recordTriggerType>Update</recordTriggerType>\n    <triggerType>RecordBeforeSave</triggerType>\n  </start>\n  <${op.tag}>\n    <name>${op.tag}_${name}</name>\n    <object>${op.object}</object>\n  </${op.tag}>\n${subflowXml}</Flow>\n`,
   };
 }
 
 function subflowDefinition(name: string): FileMap {
   return {
-    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n</Flow>\n`,
+    // <label> is required on every Flow, including a called subflow definition.
+    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n</Flow>\n`,
   };
 }
 
