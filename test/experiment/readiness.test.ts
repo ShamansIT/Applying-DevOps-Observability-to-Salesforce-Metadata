@@ -203,6 +203,8 @@ function coverageStrictRunner(): (
     },
   });
   const succeeded = JSON.stringify({ result: { done: true, success: true, status: 'Succeeded' } });
+  // The exact real-org diagnostic from readiness-20260805-02: the removed handler leaves an unresolved
+  // Apex symbol, not a missing field.
   const missingDep = JSON.stringify({
     status: 1,
     result: {
@@ -213,7 +215,10 @@ function coverageStrictRunner(): (
         componentFailures: [
           {
             fullName: 'R02_AccountTrigger',
-            problem: 'Dependent class not found: R02_AccountHandler',
+            problemType: 'Error',
+            problem: 'Variable does not exist: R02_AccountHandler',
+            lineNumber: 2,
+            columnNumber: 5,
           },
         ],
       },

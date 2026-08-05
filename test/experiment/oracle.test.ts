@@ -183,6 +183,78 @@ describe('normaliseValidation', () => {
   });
 });
 
+// Classify a component failure by its Salesforce problem message. The subject of the message decides the
+// class, since a missing field and a missing Apex symbol both read "does not exist".
+function classify(problem: string, problemType = 'Error', line = 0, column = 0): string {
+  const v = normaliseValidation(
+    proc(
+      JSON.stringify({
+        status: 1,
+        result: {
+          done: true,
+          success: false,
+          status: 'Failed',
+          details: {
+            componentFailures: [
+              { fullName: 'Comp', problemType, problem, lineNumber: line, columnNumber: column },
+            ],
+          },
+        },
+      }),
+      1,
+    ),
+  );
+  return v.failureClass;
+}
+
+describe('classifyFailure - context-aware failure classes', () => {
+  it('classifies the exact real R02 diagnostic (missing Apex class) as missing_dependency', () => {
+    // Observed verbatim from readiness-20260805-02.
+    expect(classify('Variable does not exist: R02_AccountHandler', 'Error', 2, 5)).toBe(
+      'missing_dependency',
+    );
+  });
+
+  it('classifies other missing Apex symbols as missing_dependency', () => {
+    expect(
+      classify(
+        'Method does not exist or incorrect signature: void run() from the type AcmeHandler',
+      ),
+    ).toBe('missing_dependency');
+    expect(classify('Invalid type: AcmeService')).toBe('missing_dependency');
+    expect(classify('Dependent class is invalid and needs recompilation')).toBe(
+      'missing_dependency',
+    );
+  });
+
+  it('classifies missing or invalid fields/columns as metadata_reference', () => {
+    // Neighbouring counterexample: also reads "does not exist" but the subject is a field.
+    expect(classify('Field Custom_Field__c does not exist. Check spelling.')).toBe(
+      'metadata_reference',
+    );
+    expect(classify("No such column 'Foo__c' on entity 'Account'")).toBe('metadata_reference');
+    expect(classify('Invalid field: Bar__c for Account')).toBe('metadata_reference');
+  });
+
+  it('classifies a syntax problem as compile', () => {
+    expect(classify("unexpected token: '}'")).toBe('compile');
+  });
+
+  it('classifies a Flow reference problem as flow_reference', () => {
+    expect(classify('Flow FlowX references an element that does not exist')).toBe('flow_reference');
+  });
+
+  it('classifies an Apex test failure as apex_test', () => {
+    expect(classify('Test method AccountTest.testInsert failed: assertion failed')).toBe(
+      'apex_test',
+    );
+  });
+
+  it('leaves an unrecognised diagnostic as unknown', () => {
+    expect(classify('Some platform message with no recognised subject')).toBe('unknown');
+  });
+});
+
 describe('runValidation', () => {
   it('runs the injected runner and normalises', async () => {
     const calls: string[][] = [];

@@ -124,28 +124,59 @@ export function deleteScratchArgs(alias: string): string[] {
   return ['org', 'delete', 'scratch', '--target-org', alias, '--no-prompt', '--json'];
 }
 
-// Keyword map from a Salesforce problem message to a failure class. Coarse but deterministic; unknown
-// when nothing matches, never a silent guess.
+// Map a Salesforce problem message to a failure class. Deterministic and context-aware: an unresolved
+// reference reads the same ("does not exist") whether a field or an Apex symbol is missing, so the subject
+// of the message decides the class, never the phrase alone. Unknown when nothing matches, never a guess.
 function classifyFailure(problem: string): ObservedFailureClass {
   const text = problem.toLowerCase();
+
+  // Syntax / parse problem: the change does not compile as written. Checked before the reference rules,
+  // but 'compile' as a bare word is avoided so "needs recompilation" (a dependency) is not miscounted.
   if (
-    text.includes('does not exist') ||
-    text.includes('invalid field') ||
-    text.includes('no such column')
+    text.includes('unexpected token') ||
+    text.includes('unexpected syntax') ||
+    text.includes('expecting ') ||
+    text.includes('syntax error')
   ) {
-    return 'metadata_reference';
-  }
-  if (text.includes('dependent') || text.includes('missing') || text.includes('not found')) {
-    return 'missing_dependency';
-  }
-  if (text.includes('compile') || text.includes('unexpected token') || text.includes('expecting')) {
     return 'compile';
   }
-  if (text.includes('flow')) {
-    return 'flow_reference';
-  }
+  // Flow reference problem.
+  if (text.includes('flow')) return 'flow_reference';
+  // Apex test failure or code-coverage shortfall.
   if ((text.includes('test') && text.includes('fail')) || text.includes('coverage')) {
     return 'apex_test';
+  }
+
+  // An unresolved or invalid reference. The subject distinguishes a schema member (field/column/entity)
+  // from an Apex symbol (variable/type/class/method). A schema subject wins when both appear, since a
+  // field error may still mention a type.
+  const absent =
+    text.includes('does not exist') ||
+    text.includes('no such') ||
+    text.includes('not found') ||
+    text.includes('invalid') ||
+    text.includes('undefined') ||
+    text.includes('unknown');
+  const schemaSubject =
+    text.includes('field') ||
+    text.includes('column') ||
+    text.includes('entity') ||
+    text.includes('sobject') ||
+    text.includes('relationship');
+  const apexSubject =
+    text.includes('variable') ||
+    text.includes('type') ||
+    text.includes('class') ||
+    text.includes('method') ||
+    text.includes('constructor') ||
+    text.includes('interface');
+
+  if (absent && schemaSubject) return 'metadata_reference'; // missing / invalid field or schema member
+  if (absent && apexSubject) return 'missing_dependency'; // missing Apex class / type / method / variable
+
+  // Explicit dependency phrasing with no resolved subject (e.g. "dependent class ... recompilation").
+  if (text.includes('dependent') || text.includes('depends on') || text.includes('missing')) {
+    return 'missing_dependency';
   }
   return 'unknown';
 }
