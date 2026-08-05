@@ -9,8 +9,12 @@ import type { AnalysisTarget, PhaseModel, ReconstructResult, WeightModel } from 
 import type { FailureClass, FileMap, MutationDetectability } from './mutation.js';
 import { runPrototype } from './prototypeAdapter.js';
 import type { PredictionCategory, PrototypeOutcome } from './prototypeAdapter.js';
-import { runValidationPolled } from './oracle.js';
-import type { PollingEvent, ProcRunner, ValidationResult } from './oracle.js';
+import {
+  METADATA_VALIDATION_POLICY,
+  metadataValidationObservation,
+  runValidationPolled,
+} from './oracle.js';
+import type { OracleObservation, PollingEvent, ProcRunner, ValidationResult } from './oracle.js';
 import type { OrgProvisioner } from './orgProvisioner.js';
 import { snapshotFromFiles } from './snapshotBuilder.js';
 import { projectChecksum } from './project.js';
@@ -314,6 +318,7 @@ export interface ReadinessRecord {
   prototypeDeterministic: boolean;
   prototypeRepetitionHashes: string[]; // one canonical hash per determinism repetition
   prototypeMismatch: DeterminismResult['mismatch']; // first differing aspect, or null
+  oracleObservation: OracleObservation; // command, test policy and terminal status behind the outcome
   cliCalls: CliCall[];
   pollingEvents: PollingEvent[]; // deploy report events when a validation was polled to a final result
   timing: ReadinessTiming;
@@ -332,6 +337,20 @@ export interface ReadinessReport {
   blockers: string[];
   records: ReadinessRecord[];
 }
+
+// No oracle was run (a setup or teardown error before any deploy). The policy is still recorded, so the
+// evidence names the intended command even when it never ran.
+const NO_OBSERVATION: OracleObservation = {
+  policyVersion: METADATA_VALIDATION_POLICY.version,
+  testLevel: METADATA_VALIDATION_POLICY.testLevel,
+  dryRun: METADATA_VALIDATION_POLICY.dryRun,
+  command: '',
+  jobId: null,
+  pollCount: 0,
+  finalStatus: 'not_run',
+  outcome: 'not_run',
+  timedOut: false,
+};
 
 function msBetween(from: bigint, to: bigint): number {
   return Math.round((Number(to - from) / 1e6) * 1000) / 1000;
@@ -440,6 +459,7 @@ export async function runReadinessScenario(
       prototypeDeterministic: false,
       prototypeRepetitionHashes: [],
       prototypeMismatch: null,
+      oracleObservation: metadataValidationObservation(cleanPolled),
       cliCalls: captured.calls,
       pollingEvents: cleanPolled.pollingEvents,
       timing: emptyTiming,
@@ -527,6 +547,7 @@ export async function runReadinessScenario(
       prototypeDeterministic: deterministic,
       prototypeRepetitionHashes: determinism.hashes,
       prototypeMismatch: determinism.mismatch,
+      oracleObservation: metadataValidationObservation(polled),
       cliCalls: captured.calls,
       pollingEvents: polled.pollingEvents,
       timing,
@@ -620,6 +641,7 @@ export function readinessScenarioFiles(
         prototypeDeterministic: record.prototypeDeterministic,
         prototypeRepetitionHashes: record.prototypeRepetitionHashes,
         prototypeMismatch: record.prototypeMismatch,
+        oracle: record.oracleObservation,
         timing: record.timing,
         workspaceCleanup: record.workspaceCleanup,
         criteriaMet: record.criteriaMet,
@@ -632,7 +654,11 @@ export function readinessScenarioFiles(
     // Salesforce command, arguments, stdout, stderr and parsed JSON live in the captured CLI calls;
     // polling events record any deploy report follow-up when a validation was not final at once.
     [`${dir}/salesforce.json`]: redact(
-      json({ pollingEvents: record.pollingEvents, calls: record.cliCalls }),
+      json({
+        oracle: record.oracleObservation,
+        pollingEvents: record.pollingEvents,
+        calls: record.cliCalls,
+      }),
     ),
   };
   if (graph) files[`${dir}/prototype-graph.json`] = redact(`${canonicalGraph(graph)}\n`);
@@ -707,6 +733,7 @@ function errorRecord(scenario: ReadinessScenario, error: unknown): ReadinessReco
     prototypeDeterministic: false,
     prototypeRepetitionHashes: [],
     prototypeMismatch: null,
+    oracleObservation: NO_OBSERVATION,
     cliCalls: [],
     pollingEvents: [],
     timing: {

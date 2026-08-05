@@ -5,6 +5,7 @@ import {
   readinessDecision,
   readinessScenarios,
   runReadiness,
+  runReadinessScenario,
 } from '../../src/experiment/readiness.js';
 import type { ReadinessScenario } from '../../src/experiment/readiness.js';
 import { runPrototype } from '../../src/experiment/prototypeAdapter.js';
@@ -176,5 +177,94 @@ describe('runReadiness - end to end with a mock org', () => {
     const decision = readinessDecision([]);
     expect(decision.decision).toBe('NOT_READY_FOR_PILOT');
     expect(decision.blockers).toEqual(['R01: not run', 'R02: not run', 'R03: not run']);
+  });
+});
+
+// A runner that reproduces the real-org failure mode: any deploy that runs local tests fails on an org-
+// wide code-coverage warning (a fresh trigger is 0% covered); a NoTestRun deploy validates metadata only.
+// R02-mutated still fails on the missing dependency under NoTestRun.
+function coverageStrictRunner(): (
+  file: string,
+  args: string[],
+  options?: { cwd: string },
+) => Promise<ProcResult> {
+  const coverageFail = JSON.stringify({
+    status: 1,
+    result: {
+      done: true,
+      success: false,
+      status: 'Failed',
+      details: {
+        componentFailures: [],
+        runTestResult: {
+          codeCoverageWarnings: [{ message: 'Average Apex coverage 0%, at least 75% required' }],
+        },
+      },
+    },
+  });
+  const succeeded = JSON.stringify({ result: { done: true, success: true, status: 'Succeeded' } });
+  const missingDep = JSON.stringify({
+    status: 1,
+    result: {
+      done: true,
+      success: false,
+      status: 'Failed',
+      details: {
+        componentFailures: [
+          {
+            fullName: 'R02_AccountTrigger',
+            problem: 'Dependent class not found: R02_AccountHandler',
+          },
+        ],
+      },
+    },
+  });
+  return (_file, args, options) => {
+    if (args.includes('RunLocalTests'))
+      return Promise.resolve({ code: 1, stdout: coverageFail, stderr: '' });
+    const cwd = options?.cwd ?? '';
+    if (cwd.includes('R02-mutated'))
+      return Promise.resolve({ code: 1, stdout: missingDep, stderr: '' });
+    return Promise.resolve({ code: 0, stdout: succeeded, stderr: '' });
+  };
+}
+
+describe('readiness oracle policy - NoTestRun keeps a clean base valid despite 0% coverage', () => {
+  const deps = () => ({
+    model: MODEL,
+    workspace: memoryWorkspace(),
+    procRunner: coverageStrictRunner(),
+    provisioner: {
+      create: (alias: string) => Promise.resolve({ alias, ready: true, message: 'ok' }),
+      remove: () => Promise.resolve(),
+    },
+    now: clock(),
+    alias: 'org',
+    prototypeReps: 1,
+  });
+
+  it('R01 clean is not invalidated by absent coverage: clean pass, mutated pass', async () => {
+    const record = await runReadinessScenario(scenario('R01'), deps());
+    expect(record.cleanOutcome).toBe('pass'); // would be clean_invalid under RunLocalTests
+    expect(record.mutatedOutcome).toBe('pass');
+    expect(record.status).toBe('complete');
+    expect(record.oracleObservation.testLevel).toBe('NoTestRun');
+    expect(record.oracleObservation.finalStatus).toBe('Succeeded');
+    expect(record.criteriaMet).toBe(true);
+  });
+
+  it('R02 expected static failure still fails: clean pass, mutated fail', async () => {
+    const record = await runReadinessScenario(scenario('R02'), deps());
+    expect(record.cleanOutcome).toBe('pass');
+    expect(record.mutatedOutcome).toBe('fail');
+    expect(record.mutatedFailureClass).toBe('missing_dependency');
+    expect(record.oracleObservation.finalStatus).toBe('Failed');
+  });
+
+  it('R03 risk-or-unresolved deploys: clean pass, mutated pass', async () => {
+    const record = await runReadinessScenario(scenario('R03'), deps());
+    expect(record.cleanOutcome).toBe('pass');
+    expect(record.mutatedOutcome).toBe('pass');
+    expect(record.status).toBe('complete');
   });
 });

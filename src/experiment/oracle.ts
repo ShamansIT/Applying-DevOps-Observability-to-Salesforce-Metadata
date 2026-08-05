@@ -1,9 +1,11 @@
 // Salesforce baseline and oracle adapter. Builds Salesforce CLI argument arrays (never shell-
 // concatenated strings, so it is safe cross-platform), runs them through an injected process runner,
-// and normalises the JSON into an outcome. For scratch orgs and sandbox-like targets, validation uses
-// a dry-run deployment with local tests, per current Salesforce guidance - not the production-oriented
-// deploy validate. The runner is injected, so the whole adapter is unit-tested against canned CLI
-// responses with no org. Real org runs are the caller's; nothing here fabricates an outcome.
+// and normalises the JSON into an outcome. The active metadata-validation oracle is a dry-run deploy with
+// NoTestRun (see METADATA_VALIDATION_POLICY) - on a disposable scratch/dev org, running local tests would
+// fail every clean base on code coverage, which is a test-suite signal, not metadata validity. A done
+// deploy is terminal: Succeeded is pass, Failed/Canceled is fail, never re-reported. The runner is
+// injected, so the adapter is unit-tested against canned CLI responses with no org. Real org runs are the
+// caller's; nothing here fabricates an outcome.
 
 import type { FailureClass } from './mutation.js';
 import type { NanoClock } from './race.js';
@@ -69,6 +71,28 @@ export function validateArgs(alias: string, sourceDir?: string): string[] {
   });
 }
 
+// Metadata-validation oracle policy (v1). The active oracle stage validates metadata shape, not Apex test
+// outcomes. On a disposable scratch/dev org a freshly deployed trigger has 0% coverage, so RunLocalTests
+// would fail every clean base on an org-wide code-coverage warning - a test-suite signal, never a
+// metadata-validity one. NoTestRun keeps the oracle measuring exactly what the stage claims. Test-
+// execution stages opt in to RunLocalTests explicitly (see stageOracle.ts). Versioned and recorded in the
+// evidence output, so the exact policy behind an outcome is auditable.
+export const METADATA_VALIDATION_POLICY = {
+  version: 1,
+  dryRun: true,
+  testLevel: 'NoTestRun',
+} as const satisfies { version: number; dryRun: boolean; testLevel: TestLevel };
+
+// sf project deploy start --dry-run --test-level NoTestRun --source-dir force-app --target-org <alias>
+// --json. The readiness and formal-pilot metadata-validation oracle.
+export function metadataValidationArgs(alias: string, sourceDir?: string): string[] {
+  return deployArgs(alias, {
+    dryRun: METADATA_VALIDATION_POLICY.dryRun,
+    testLevel: METADATA_VALIDATION_POLICY.testLevel,
+    ...(sourceDir ? { sourceDir } : {}),
+  });
+}
+
 // Anonymous-apex run against a deployed org, so a runtime-only failure deploy and tests miss can surface.
 export function apexRunArgs(alias: string, file: string): string[] {
   return ['apex', 'run', '--target-org', alias, '--file', file, '--json'];
@@ -120,21 +144,28 @@ function classifyFailure(problem: string): ObservedFailureClass {
   if (text.includes('flow')) {
     return 'flow_reference';
   }
-  if (text.includes('test') && text.includes('fail')) {
+  if ((text.includes('test') && text.includes('fail')) || text.includes('coverage')) {
     return 'apex_test';
   }
   return 'unknown';
 }
 
 interface DeployJson {
-  status?: number;
+  status?: number; // CLI exit-style status number, not the deploy status string below
   name?: string;
   message?: string;
   result?: {
+    id?: string;
+    done?: boolean;
     success?: boolean;
+    status?: string; // deploy status string: Succeeded / Failed / Canceled / InProgress / ...
+    errorMessage?: string;
     details?: {
       componentFailures?: { fullName?: string; problem?: string }[];
-      runTestResult?: { failures?: { name?: string; message?: string }[] };
+      runTestResult?: {
+        failures?: { name?: string; message?: string }[];
+        codeCoverageWarnings?: { name?: string; message?: string }[];
+      };
     };
   };
 }
@@ -147,6 +178,14 @@ const INFRA_NAMES = new Set([
   'AuthInfoCreationError',
   'NamedOrgNotFoundError',
 ]);
+
+// Deploy status strings that are always terminal per the pinned CLI schema. Canceling is terminal only
+// once done is true, so it is handled through the done flag rather than listed here.
+const TERMINAL_STATUSES = new Set(['Succeeded', 'SucceededPartial', 'Failed', 'Canceled']);
+
+function isTerminal(done: boolean | undefined, status: string | undefined): boolean {
+  return done === true || (status !== undefined && TERMINAL_STATUSES.has(status));
+}
 
 // Normalise a dry-run deploy response. A job id or a pending poll is not actionable; a specific
 // component or test failure, or a completed success, is.
@@ -191,6 +230,40 @@ export function normaliseValidation(proc: ProcResult): ValidationResult {
       raw: json,
     };
   }
+
+  // Terminal state: a completed job is final and actionable - pass or fail - even with no itemised
+  // component or test failure. An org-wide Apex code-coverage failure reports done, Failed, success false
+  // with empty componentFailures; it is a real terminal fail, never a pending or not_run response.
+  if (isTerminal(result.done, result.status)) {
+    const succeeded = result.success === true || result.status === 'Succeeded';
+    if (succeeded) {
+      return {
+        outcome: 'pass',
+        failureClass: 'none',
+        failingComponents: [],
+        message: 'validation succeeded',
+        actionable: true,
+        infrastructure: 'ok',
+        raw: json,
+      };
+    }
+    const coverage = result.details?.runTestResult?.codeCoverageWarnings ?? [];
+    const message =
+      coverage[0]?.message ??
+      result.errorMessage ??
+      json.message ??
+      `deploy ${result.status ?? 'terminal'} without success`;
+    return {
+      outcome: 'fail',
+      failureClass: classifyFailure(message),
+      failingComponents: [],
+      message,
+      actionable: true,
+      infrastructure: 'ok',
+      raw: json,
+    };
+  }
+
   if (result.success === true) {
     return {
       outcome: 'pass',
@@ -202,7 +275,7 @@ export function normaliseValidation(proc: ProcResult): ValidationResult {
       raw: json,
     };
   }
-  // Parsed, no failures, not marked success: a pending or job-only response is not yet actionable.
+  // Parsed, no failures, not terminal, not marked success: a pending or job-only response, not actionable.
   return {
     outcome: 'not_run',
     failureClass: 'unknown',
@@ -344,6 +417,37 @@ export interface PolledValidation {
   pollingEvents: PollingEvent[];
   firstActionablePoll: number | null; // poll index of first actionable feedback; 0 if immediate
   timedOut: boolean;
+  initialArgs: string[]; // exact CLI arguments of the initial deploy (evidence)
+  finalStatus: string; // Salesforce deploy status string at the final result (evidence)
+}
+
+// Compact, auditable evidence of one oracle observation - the exact command, test policy and terminal
+// status behind an outcome. Recorded alongside the raw CLI calls, so a run is reproducible and honest.
+export interface OracleObservation {
+  policyVersion: number;
+  testLevel: TestLevel;
+  dryRun: boolean;
+  command: string; // sf <initialArgs>
+  jobId: string | null;
+  pollCount: number;
+  finalStatus: string;
+  outcome: Outcome;
+  timedOut: boolean;
+}
+
+// Build the metadata-validation observation from a polled result under the pinned policy.
+export function metadataValidationObservation(polled: PolledValidation): OracleObservation {
+  return {
+    policyVersion: METADATA_VALIDATION_POLICY.version,
+    testLevel: METADATA_VALIDATION_POLICY.testLevel,
+    dryRun: METADATA_VALIDATION_POLICY.dryRun,
+    command: `sf ${polled.initialArgs.join(' ')}`,
+    jobId: polled.jobId,
+    pollCount: polled.pollCount,
+    finalStatus: polled.finalStatus,
+    outcome: polled.result.outcome,
+    timedOut: polled.timedOut,
+  };
 }
 
 export interface PollOptions {
@@ -364,9 +468,11 @@ async function pollDeploy(
   const proc = await run('sf', initialArgs, options);
   const first = normaliseValidation(proc);
   const jobId = extractJobId(proc.stdout);
+  const firstStatus = deployStatus(proc.stdout);
 
   if (first.actionable || first.infrastructure !== 'ok') {
-    // Immediate final result: first-actionable coincides with completion.
+    // Immediate final result (a terminal deploy or an infra fault): first-actionable coincides with
+    // completion. No deploy report is issued for an already-terminal job.
     return {
       result: first,
       jobId,
@@ -374,6 +480,8 @@ async function pollDeploy(
       pollingEvents: [],
       firstActionablePoll: first.actionable ? 0 : null,
       timedOut: false,
+      initialArgs,
+      finalStatus: firstStatus,
     };
   }
   if (!jobId) {
@@ -385,6 +493,8 @@ async function pollDeploy(
       pollingEvents: [],
       firstActionablePoll: null,
       timedOut: false,
+      initialArgs,
+      finalStatus: firstStatus,
     };
   }
 
@@ -394,16 +504,27 @@ async function pollDeploy(
   for (let i = 1; i <= maxPolls; i += 1) {
     const report = await run('sf', deployReportArgs(alias, jobId), options);
     const result = normaliseValidation(report);
+    const status = deployStatus(report.stdout);
     if (firstActionablePoll === null && result.actionable) firstActionablePoll = i;
     pollingEvents.push({
       poll: i,
       tsNs: mark(),
-      status: deployStatus(report.stdout),
+      status,
       outcome: result.outcome,
       actionable: result.actionable,
     });
+    // Stop at once on any terminal state or infra fault - a done job is never re-reported.
     if (result.actionable || result.infrastructure !== 'ok') {
-      return { result, jobId, pollCount: i, pollingEvents, firstActionablePoll, timedOut: false };
+      return {
+        result,
+        jobId,
+        pollCount: i,
+        pollingEvents,
+        firstActionablePoll,
+        timedOut: false,
+        initialArgs,
+        finalStatus: status,
+      };
     }
   }
   return {
@@ -421,6 +542,8 @@ async function pollDeploy(
     pollingEvents,
     firstActionablePoll,
     timedOut: true,
+    initialArgs,
+    finalStatus: pollingEvents[pollingEvents.length - 1]?.status ?? firstStatus,
   };
 }
 
@@ -432,7 +555,9 @@ export async function runValidationPolled(
   poll: PollOptions = {},
 ): Promise<PolledValidation> {
   const sourceDir = options ? 'force-app' : undefined;
-  return pollDeploy(alias, run, validateArgs(alias, sourceDir), options, poll);
+  // Metadata-validation policy: dry-run, NoTestRun (see METADATA_VALIDATION_POLICY). Coverage is not the
+  // oracle stage, so it never invalidates a clean base on a disposable org.
+  return pollDeploy(alias, run, metadataValidationArgs(alias, sourceDir), options, poll);
 }
 
 // Any deploy (dry-run or real, chosen test level), polled to a final result. Used by the stage oracle,

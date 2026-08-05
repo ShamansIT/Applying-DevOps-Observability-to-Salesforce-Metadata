@@ -4,6 +4,8 @@ import {
   createScratchArgs,
   deleteScratchArgs,
   deployArgs,
+  metadataValidationArgs,
+  metadataValidationObservation,
   normaliseRuntime,
   normaliseValidation,
   runValidation,
@@ -15,6 +17,32 @@ import type { ProcResult } from '../../src/experiment/oracle.js';
 function proc(stdout: string, code = 0, stderr = ''): ProcResult {
   return { code, stdout, stderr };
 }
+
+// The observed real-org R01 shape: a terminal Failed whose only fault is org-wide Apex code coverage,
+// with the components deployed and no component failures.
+const failedCoverage = JSON.stringify({
+  status: 1,
+  result: {
+    id: '0Af002',
+    done: true,
+    success: false,
+    status: 'Failed',
+    details: {
+      componentSuccesses: [{ fullName: 'R01_AccountTrigger' }],
+      componentFailures: [],
+      runTestResult: {
+        failures: [],
+        codeCoverageWarnings: [
+          {
+            name: 'R01_AccountTrigger',
+            message:
+              'Selected trigger coverage 0%, average Apex coverage 0%, at least 75% required',
+          },
+        ],
+      },
+    },
+  },
+});
 
 describe('argument arrays', () => {
   it('builds a dry-run validation with local tests', () => {
@@ -34,6 +62,14 @@ describe('argument arrays', () => {
     const args = deployArgs('eval-org', { dryRun: false, testLevel: 'NoTestRun' });
     expect(args).not.toContain('--dry-run');
     expect(args).toContain('NoTestRun');
+  });
+
+  it('builds the metadata-validation oracle as dry-run NoTestRun', () => {
+    const args = metadataValidationArgs('eval-org', 'force-app');
+    expect(args).toContain('--dry-run');
+    expect(args).toContain('NoTestRun');
+    expect(args).not.toContain('RunLocalTests');
+    expect(args.slice(-2)).toEqual(['eval-org', '--json']);
   });
 
   it('builds an anonymous-apex run against a file', () => {
@@ -120,6 +156,31 @@ describe('normaliseValidation', () => {
     expect(v.actionable).toBe(false);
     expect(v.outcome).toBe('not_run');
   });
+
+  it('reads a terminal Succeeded as an actionable pass', () => {
+    const v = normaliseValidation(
+      proc(JSON.stringify({ result: { done: true, success: true, status: 'Succeeded' } })),
+    );
+    expect(v.outcome).toBe('pass');
+    expect(v.actionable).toBe(true);
+  });
+
+  it('reads a terminal Failed with only a coverage warning as an actionable fail', () => {
+    const v = normaliseValidation(proc(failedCoverage, 1));
+    expect(v.outcome).toBe('fail');
+    expect(v.actionable).toBe(true);
+    expect(v.failureClass).toBe('apex_test');
+    expect(v.message).toMatch(/coverage/i);
+    expect(v.infrastructure).toBe('ok'); // a product fail, never infrastructure
+  });
+
+  it('reads a terminal Canceled as an actionable fail', () => {
+    const v = normaliseValidation(
+      proc(JSON.stringify({ result: { done: true, success: false, status: 'Canceled' } })),
+    );
+    expect(v.outcome).toBe('fail');
+    expect(v.actionable).toBe(true);
+  });
 });
 
 describe('runValidation', () => {
@@ -199,5 +260,52 @@ describe('runValidationPolled', () => {
     const polled = await runValidationPolled('eval-org', runner);
     expect(polled.pollCount).toBe(0);
     expect(polled.result.infrastructure).toBe('retryable_failure');
+  });
+
+  it('stops at once on a terminal Failed - never re-reports a done job', async () => {
+    let reports = 0;
+    const runner = (_file: string, args: string[]): Promise<ProcResult> => {
+      if (isReport(args)) reports += 1;
+      return Promise.resolve(proc(failedCoverage, 1));
+    };
+    const polled = await runValidationPolled('eval-org', runner);
+    expect(polled.result.outcome).toBe('fail');
+    expect(polled.pollCount).toBe(0);
+    expect(reports).toBe(0);
+    expect(polled.finalStatus).toBe('Failed');
+  });
+
+  it('stops at once on a terminal Succeeded - never re-reports a done job', async () => {
+    let reports = 0;
+    const runner = (_file: string, args: string[]): Promise<ProcResult> => {
+      if (isReport(args)) reports += 1;
+      return Promise.resolve(proc(succeeded));
+    };
+    const polled = await runValidationPolled('eval-org', runner);
+    expect(polled.result.outcome).toBe('pass');
+    expect(polled.pollCount).toBe(0);
+    expect(reports).toBe(0);
+    expect(polled.finalStatus).toBe('Succeeded');
+  });
+
+  it('records the exact command, NoTestRun policy and terminal status as evidence', async () => {
+    let initial: string[] = [];
+    const runner = (_file: string, args: string[]): Promise<ProcResult> => {
+      if (!isReport(args)) initial = args;
+      return Promise.resolve(proc(succeeded));
+    };
+    const polled = await runValidationPolled('eval-org', runner, { cwd: '/w', timeoutMs: 1000 });
+    expect(initial).toContain('--dry-run');
+    expect(initial).toContain('NoTestRun');
+    expect(initial).not.toContain('RunLocalTests');
+    expect(polled.initialArgs).toEqual(initial);
+
+    const obs = metadataValidationObservation(polled);
+    expect(obs.testLevel).toBe('NoTestRun');
+    expect(obs.policyVersion).toBe(1);
+    expect(obs.dryRun).toBe(true);
+    expect(obs.finalStatus).toBe('Succeeded');
+    expect(obs.outcome).toBe('pass');
+    expect(obs.command).toMatch(/^sf project deploy start/);
   });
 });
