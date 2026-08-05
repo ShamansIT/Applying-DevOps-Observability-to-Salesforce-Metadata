@@ -96,6 +96,60 @@ describe('pilot candidate clean materialisation', () => {
   });
 });
 
+// Regression for the exact diagnostics from formal pilot pilot-20260805-02, after the label fix:
+//   "Required field is missing: locationX" (record-op element had no canvas coordinates)
+//   "field integrity exception ... nothing is connected to the Start element" (empty subflow)
+// and the authorised correction before_save_flows -> after_save_flows (before-save flows may not create
+// or update related records, nor call subflows).
+describe('after-save conversion and Flow deploy-completeness', () => {
+  const everyFlow = CANDIDATES.flatMap((c) => [
+    ...flowFiles(c.cleanFiles).map(([p, x]) => [c.id, 'clean', p, x] as const),
+    ...flowFiles(c.mutatedFiles).map(([p, x]) => [c.id, 'mutated', p, x] as const),
+  ]);
+
+  it('no flow is before-save any more; every record-triggered flow is after-save', () => {
+    for (const [id, form, path, xml] of everyFlow) {
+      expect(xml, `${id} ${form} ${path} still before-save`).not.toContain('RecordBeforeSave');
+      if (xml.includes('<triggerType>')) {
+        expect(xml, `${id} ${form} ${path} trigger type`).toContain(
+          '<triggerType>RecordAfterSave</triggerType>',
+        );
+      }
+    }
+  });
+
+  it('every record-operation element carries canvas coordinates (locationX/locationY)', () => {
+    for (const [id, form, path, xml] of everyFlow) {
+      if (/<record(Creates|Updates|Lookups|Deletes)>/.test(xml)) {
+        expect(xml, `${id} ${form} ${path} missing locationX`).toContain('<locationX>');
+        expect(xml, `${id} ${form} ${path} missing locationY`).toContain('<locationY>');
+      }
+    }
+  });
+
+  it('every flow Start is connected (no orphaned Start element)', () => {
+    for (const [id, form, path, xml] of everyFlow) {
+      const start = /<start>([\s\S]*?)<\/start>/.exec(xml);
+      expect(start, `${id} ${form} ${path} has no <start>`).not.toBeNull();
+      expect(start?.[1], `${id} ${form} ${path} Start not connected`).toContain('<connector>');
+    }
+  });
+
+  it('every called subflow definition exists in the clean base and is itself connected', () => {
+    for (const c of CANDIDATES) {
+      const flows = flowNames(c.cleanFiles);
+      for (const [, xml] of flowFiles(c.cleanFiles)) {
+        for (const sub of parseFlow(xml).subflows) {
+          expect(flows.has(sub), `${c.id} subflow ${sub} missing from clean base`).toBe(true);
+          const subXml = c.cleanFiles[`force-app/main/default/flows/${sub}.flow-meta.xml`] ?? '';
+          expect(subXml, `${c.id} subflow ${sub} Start not connected`).toContain('<connector>');
+          expect(parseFlow(subXml).errors, `${c.id} subflow ${sub} parse`).toEqual([]);
+        }
+      }
+    }
+  });
+});
+
 describe('pilot candidate mutation semantics preserved', () => {
   it('clean and mutated hashes differ for every candidate', () => {
     for (const c of CANDIDATES) expect(c.cleanHash, c.id).not.toBe(c.mutatedHash);

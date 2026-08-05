@@ -71,3 +71,32 @@ determinism, not reconstruction.
   against a real org; small samples and one pinned API version.
 - Reporting rule: no hypothesis is supported or rejected until real frozen main results exist. Green
   offline is evidence the machinery works, not evidence about the research questions.
+
+## Protocol amendment PA-01 - declarative/mixed flows before-save -> after-save
+
+A pre-main benchmark correction found during formal pilot validation. Recorded here so the change to the
+Expected Execution Map is auditable.
+
+- Failed pilots (preserved, excluded from final metrics): `pilot-20260805-01`, `pilot-20260805-02`.
+- Invalid assumption: the declarative and mixed clean flows were `RecordBeforeSave` yet created a Contact,
+  updated the Account, and called a subflow.
+- Real-org diagnostics: `pilot-20260805-01` failed all six declarative/mixed clean flows with `Required
+  field is missing: label`; after the label fix, `pilot-20260805-02` failed them with `Required field is
+  missing: locationX` (record-op element, 12:18) and, for `Dec_Sub`, `field integrity exception ...
+  nothing is connected to the Start element`.
+- Official Salesforce constraint: a before-save record-triggered flow may only update or validate the
+  triggering record, using Assignment, Decision, Get Records and Loop; it cannot create or update
+  related/unrelated records and cannot call subflows. The modelled behaviour is therefore only valid
+  after-save.
+- Correction: convert the affected declarative and mixed flows to `RecordAfterSave` and complete the Flow
+  metadata (label, `locationX`/`locationY`, connected Start, element connectors, valid record-op config,
+  connected subflow). Behaviour preserved: Contact creation, Account re-update (re-entry risk), subflow
+  invocation, the 3 x 3 design and all variant categories.
+- Expected Execution Map delta: for the six declarative/mixed flow nodes only, phase `before_save_flows`
+  -> `after_save_flows`, node id prefix `flow_before:` -> `flow_after:`, node type `flow_before` ->
+  `flow_after`, and ordered paths reposition those nodes into the after-save phase. Node and edge sets,
+  relationships, apex-trigger nodes, validation-rule nodes and all programmatic scenarios are unchanged.
+- Unchanged: hypotheses, metrics, denominators, evidence weights, risk thresholds, scenario categories and
+  acceptance criteria. Prototype output was not altered to force a pass - per-scenario `f1` and
+  `phaseAccuracy` are identical before and after (declarative static_fail `0.667`, declarative risk `0`,
+  the rest `1`), determinism stays 9/9, aggregate `f1` median 1.

@@ -49,28 +49,67 @@ function apexTrigger(name: string, obj: string, body: string): FileMap {
   };
 }
 
-// A before-save flow with one record operation and, optionally, a subflow call.
+// An after-save record-triggered flow with one record operation and, optionally, a subflow call. After-
+// save is required: the modelled operations create a related record, update the triggering record, or
+// invoke a subflow - none of which a before-save flow may do (Salesforce restricts before-save to $Record
+// field updates via Assignment/Decision/Get/Loop only). Required deploy fields - <label>, canvas
+// coordinates, a connected Start and element connectors - make the Flow valid. The parser reads only
+// start, record ops and subflows, so the reconstructed graph and ground truth are unchanged by the
+// coordinates and connectors.
 function flow(
   name: string,
   obj: string,
   op: { tag: string; object: string },
   subflow?: string,
 ): FileMap {
-  const subflowXml = subflow
-    ? `  <subflows>\n    <name>Call_${subflow}</name>\n    <flowName>${subflow}</flowName>\n  </subflows>\n`
+  const opName = `${op.tag}_${name}`;
+  const callName = subflow ? `Call_${subflow}` : '';
+  // recordUpdates re-updates the triggering record (Id = $Record.Id); recordCreates sets one field.
+  const opConfig =
+    op.tag === 'recordUpdates'
+      ? `    <filterLogic>and</filterLogic>\n    <filters>\n      <field>Id</field>\n      <operator>EqualTo</operator>\n      <value>\n        <elementReference>$Record.Id</elementReference>\n      </value>\n    </filters>\n    <inputAssignments>\n      <field>Description</field>\n      <value>\n        <stringValue>touched</stringValue>\n      </value>\n    </inputAssignments>\n`
+      : `    <inputAssignments>\n      <field>LastName</field>\n      <value>\n        <stringValue>Auto</stringValue>\n      </value>\n    </inputAssignments>\n    <storeOutputAutomatically>true</storeOutputAutomatically>\n`;
+  // With a subflow, the record op connects on to the Subflow element; otherwise it is the last element.
+  const opConnector = subflow
+    ? `    <connector>\n      <targetReference>${callName}</targetReference>\n    </connector>\n`
     : '';
-  return {
-    // <label> is a required Flow field - omitting it fails clean metadata validation with "Required field
-    // is missing: label". The parser ignores it, so ground truth is unchanged.
-    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n  <start>\n    <object>${obj}</object>\n    <recordTriggerType>Update</recordTriggerType>\n    <triggerType>RecordBeforeSave</triggerType>\n  </start>\n  <${op.tag}>\n    <name>${op.tag}_${name}</name>\n    <object>${op.object}</object>\n  </${op.tag}>\n${subflowXml}</Flow>\n`,
-  };
+  const subflowXml = subflow
+    ? `  <subflows>\n    <name>${callName}</name>\n    <label>${callName}</label>\n    <locationX>176</locationX>\n    <locationY>350</locationY>\n    <flowName>${subflow}</flowName>\n  </subflows>\n`
+    : '';
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n` +
+    `  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n` +
+    `  <processType>AutoLaunchedFlow</processType>\n` +
+    `  <start>\n    <locationX>50</locationX>\n    <locationY>0</locationY>\n` +
+    `    <connector>\n      <targetReference>${opName}</targetReference>\n    </connector>\n` +
+    `    <object>${obj}</object>\n    <recordTriggerType>Update</recordTriggerType>\n` +
+    `    <triggerType>RecordAfterSave</triggerType>\n  </start>\n` +
+    `  <${op.tag}>\n    <name>${opName}</name>\n    <label>${opName}</label>\n` +
+    `    <locationX>176</locationX>\n    <locationY>158</locationY>\n` +
+    opConfig +
+    opConnector +
+    `    <object>${op.object}</object>\n  </${op.tag}>\n` +
+    subflowXml +
+    `</Flow>\n`;
+  return { [`force-app/main/default/flows/${name}.flow-meta.xml`]: xml };
 }
 
+// A called subflow: a valid autolaunched flow whose Start is connected to one record-create element, so
+// it deploys ("nothing is connected to the Start element" otherwise). Its internals are not scored - the
+// static_fail mutation deletes it, and ground truth carries only the caller's invokes edge.
 function subflowDefinition(name: string): FileMap {
-  return {
-    // <label> is required on every Flow, including a called subflow definition.
-    [`force-app/main/default/flows/${name}.flow-meta.xml`]: `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n  <processType>AutoLaunchedFlow</processType>\n</Flow>\n`,
-  };
+  const xml =
+    `<?xml version="1.0" encoding="UTF-8"?>\n<Flow xmlns="http://soap.sforce.com/2006/04/metadata">\n` +
+    `  <apiVersion>67.0</apiVersion>\n  <label>${name}</label>\n  <status>Active</status>\n` +
+    `  <processType>AutoLaunchedFlow</processType>\n` +
+    `  <start>\n    <locationX>50</locationX>\n    <locationY>0</locationY>\n` +
+    `    <connector>\n      <targetReference>Create_${name}</targetReference>\n    </connector>\n  </start>\n` +
+    `  <recordCreates>\n    <name>Create_${name}</name>\n    <label>Create_${name}</label>\n` +
+    `    <locationX>176</locationX>\n    <locationY>158</locationY>\n` +
+    `    <inputAssignments>\n      <field>LastName</field>\n      <value>\n        <stringValue>Auto</stringValue>\n      </value>\n    </inputAssignments>\n` +
+    `    <object>Contact</object>\n    <storeOutputAutomatically>true</storeOutputAutomatically>\n  </recordCreates>\n` +
+    `</Flow>\n`;
+  return { [`force-app/main/default/flows/${name}.flow-meta.xml`]: xml };
 }
 
 function validationRule(obj: string, name: string): FileMap {
@@ -82,7 +121,10 @@ function validationRule(obj: string, name: string): FileMap {
 // --- Ground-truth helpers (ids follow the core's stable scheme) ---
 
 const TRIGGER_PHASE = 'before_triggers';
-const FLOW_PHASE = 'before_save_flows';
+// After-save phase: the modelled flows create/update related or own records and (declarative static_fail)
+// call a subflow - operations Salesforce permits only in after-save record-triggered flows, never before-
+// save. See the protocol amendment in docs/EXPERIMENT.md.
+const FLOW_PHASE = 'after_save_flows';
 const VR_PHASE = 'custom_validation';
 
 function gtNode(id: string, phase: string, type: string): GroundTruthNode {
@@ -93,7 +135,7 @@ function triggerId(obj: string, name: string): string {
   return `apex_trigger:${obj}:${name}:${TRIGGER_PHASE}`;
 }
 function flowId(obj: string, name: string): string {
-  return `flow_before:${obj}:${name}`;
+  return `flow_after:${obj}:${name}`;
 }
 
 // --- Assembly ---
@@ -284,7 +326,7 @@ function mixed(): Candidate[] {
   };
   const nodes = (): GroundTruthNode[] => [
     gtNode(triggerId(OBJ, trg), TRIGGER_PHASE, 'apex_trigger'),
-    gtNode(flowId(OBJ, flw), FLOW_PHASE, 'flow_before'),
+    gtNode(flowId(OBJ, flw), FLOW_PHASE, 'flow_after'),
     gtNode(`validation_rule:${OBJ}:${OBJ}.Mix_Require_Name`, VR_PHASE, 'validation_rule'),
   ];
   const staticEdges = (id: string): GroundTruthEdge[] => [
@@ -426,7 +468,7 @@ function declarative(): Candidate[] {
       groundTruth: (id) => ({
         id,
         nodes: [
-          gtNode(flowId(OBJ, dvFlow), FLOW_PHASE, 'flow_before'),
+          gtNode(flowId(OBJ, dvFlow), FLOW_PHASE, 'flow_after'),
           gtNode(`validation_rule:${OBJ}:${OBJ}.Dec_Require_Name`, VR_PHASE, 'validation_rule'),
           gtNode(`validation_rule:${OBJ}:${OBJ}.Dec_Require_Industry`, VR_PHASE, 'validation_rule'),
         ],
@@ -456,7 +498,7 @@ function declarative(): Candidate[] {
       mutated: failMutated,
       groundTruth: (id) => ({
         id,
-        nodes: [gtNode(flowId(OBJ, dsfFlow), FLOW_PHASE, 'flow_before')],
+        nodes: [gtNode(flowId(OBJ, dsfFlow), FLOW_PHASE, 'flow_after')],
         edges: [
           {
             from: flowId(OBJ, dsfFlow),
@@ -483,7 +525,7 @@ function declarative(): Candidate[] {
       mutated: riskMutated,
       groundTruth: (id) => ({
         id,
-        nodes: [gtNode(flowId(OBJ, drFlow), FLOW_PHASE, 'flow_before')],
+        nodes: [gtNode(flowId(OBJ, drFlow), FLOW_PHASE, 'flow_after')],
         edges: [
           {
             from: flowId(OBJ, drFlow),
