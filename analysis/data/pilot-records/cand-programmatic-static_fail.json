@@ -1,0 +1,119 @@
+{
+  "scenarioId": "cand-programmatic-static_fail",
+  "status": "complete",
+  "cleanChecksum": "3b54f991b23a3b66d8f8e29ce0fcf275f6a2eb1ed3f146f620d7d33d85c72cdb",
+  "mutatedChecksum": "dab9c10bce8a3a61cf07d905d086d36b78030338a8b7aa7dd6b18fa5d8f7622c",
+  "identicalBytes": true,
+  "cleanOutcome": "pass",
+  "mutatedOutcome": "fail",
+  "mutatedFailureClass": "missing_dependency",
+  "prototype": {
+    "predictionCategory": "blocking_finding",
+    "actionableFinding": {
+      "category": "blocking_finding",
+      "component": "apex_class:Prog_Handler",
+      "reason": "apex_trigger:Account:Prog_Trigger:before_triggers references apex_class:Prog_Handler, which is not present in the project",
+      "scope": "confirmed"
+    },
+    "affectedComponents": [
+      "apex_class:Prog_Handler"
+    ],
+    "stageEvents": [
+      {
+        "stage": "L1",
+        "ms": 0.08599999999569263
+      },
+      {
+        "stage": "L2",
+        "ms": 0.017999999996391125
+      },
+      {
+        "stage": "L3",
+        "ms": 0.2114000000001397
+      },
+      {
+        "stage": "L4",
+        "ms": 0.034800000008544885
+      }
+    ],
+    "failed": false
+  },
+  "prototypeDeterministic": true,
+  "prototypeRepetitionHashes": [
+    "563b118186d710f9722111d10a3ea5c084446d456bc0ebbca02dc3464b378be8",
+    "563b118186d710f9722111d10a3ea5c084446d456bc0ebbca02dc3464b378be8",
+    "563b118186d710f9722111d10a3ea5c084446d456bc0ebbca02dc3464b378be8"
+  ],
+  "prototypeMismatch": null,
+  "oracleObservation": {
+    "policyVersion": 1,
+    "testLevel": "NoTestRun",
+    "dryRun": true,
+    "command": "sf project deploy start --dry-run --source-dir force-app --test-level NoTestRun --target-org pilot-20260805-03-org --json",
+    "jobId": "0AfAq00000iy7ZxKAI",
+    "pollCount": 0,
+    "finalStatus": "Failed",
+    "outcome": "fail",
+    "timedOut": false
+  },
+  "cliCalls": [
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 0,
+      "stdout": "{\n  \"status\": 0,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:04:09.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:04:08.000Z\",\n    \"details\": {\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"ApexClass\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:04:09.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"classes/Prog_Handler.cls\",\n          \"fullName\": \"Prog_Handler\",\n          \"id\": \"01pAq00000GC8BtIAL\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"ApexTrigger\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:04:09.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"triggers/Prog_Trigger.trigger\",\n          \"fullName\": \"Prog_Trigger\",\n          \"id\": \"01qAq000008tXA1IAM\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:04:09.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      },\n      \"componentFailures\": []\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy7YLKAY\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:04:09.000Z\",\n    \"numberComponentErrors\": 0,\n    \"numberComponentsDeployed\": 2,\n    \"numberComponentsTotal\": 2,\n    \"numberFiles\": \"7\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:04:08.000Z\",\n    \"status\": \"Succeeded\",\n    \"success\": true,\n    \"zipSize\": 1499,\n    \"files\": [\n      {\n        \"fullName\": \"Prog_Handler\",\n        \"type\": \"ApexClass\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-programmatic-static_fail-clean-ObLUEi\\\\force-app\\\\main\\\\default\\\\classes\\\\Prog_Handler.cls\"\n      },\n      {\n        \"fullName\": \"Prog_Handler\",\n        \"type\": \"ApexClass\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-programmatic-static_fail-clean-ObLUEi\\\\force-app\\\\main\\\\default\\\\classes\\\\Prog_Handler.cls-meta.xml\"\n      },\n      {\n        \"fullName\": \"Prog_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-programmatic-static_fail-clean-ObLUEi\\\\force-app\\\\main\\\\default\\\\triggers\\\\Prog_Trigger.trigger\"\n      },\n      {\n        \"fullName\": \"Prog_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-programmatic-static_fail-clean-ObLUEi\\\\force-app\\\\main\\\\default\\\\triggers\\\\Prog_Trigger.trigger-meta.xml\"\n      }\n    ],\n    \"zipFileCount\": 5,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy7YLKAY%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 1,
+      "stdout": "{\n  \"status\": 1,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:04:16.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:04:15.000Z\",\n    \"details\": {\n      \"componentFailures\": [\n        {\n          \"changed\": false,\n          \"columnNumber\": 5,\n          \"componentType\": \"ApexTrigger\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:04:16.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"triggers/Prog_Trigger.trigger\",\n          \"fullName\": \"Prog_Trigger\",\n          \"lineNumber\": 2,\n          \"problem\": \"Variable does not exist: Prog_Handler\",\n          \"problemType\": \"Error\",\n          \"success\": false\n        }\n      ],\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:04:16.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      }\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy7ZxKAI\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:04:16.000Z\",\n    \"numberComponentErrors\": 1,\n    \"numberComponentsDeployed\": 0,\n    \"numberComponentsTotal\": 1,\n    \"numberFiles\": \"4\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:04:15.000Z\",\n    \"status\": \"Failed\",\n    \"success\": false,\n    \"zipSize\": 874,\n    \"files\": [\n      {\n        \"fullName\": \"Prog_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Failed\",\n        \"problemType\": \"Error\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-programmatic-static_fail-mutated-gUc6Zt\\\\force-app\\\\main\\\\default\\\\triggers\\\\Prog_Trigger.trigger\",\n        \"lineNumber\": 2,\n        \"columnNumber\": 5,\n        \"error\": \"Variable does not exist: Prog_Handler (2:5)\"\n      }\n    ],\n    \"zipFileCount\": 3,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy7ZxKAI%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    }
+  ],
+  "pollingEvents": [],
+  "timing": {
+    "prototypeTtfafMs": 4.785,
+    "baselineTtfafMs": 6186.099,
+    "oracleFirstActionableMs": 6186.099,
+    "oracleCompletedMs": 6186.099,
+    "leadTimeMs": 6181.314,
+    "prototypeFirst": true
+  },
+  "designExpectation": {
+    "cleanValidation": "pass",
+    "mutatedValidation": "fail",
+    "failureClass": "missing_dependency",
+    "prototype": "blocking"
+  },
+  "workspaceCleanup": {
+    "ok": true
+  },
+  "criteriaMet": true,
+  "reasons": []
+}

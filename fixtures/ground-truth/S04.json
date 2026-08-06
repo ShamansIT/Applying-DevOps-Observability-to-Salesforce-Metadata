@@ -1,0 +1,114 @@
+{
+  "id": "S04",
+  "source": "Author inspection of Account update metadata: trigger and flow bodies, dependency record, inactive-flow status, and the known dynamic SOQL target (Opportunity).",
+  "nodes": [
+    {
+      "id": "apex_trigger:Account:S04_Trigger:before_triggers",
+      "phase": "before_triggers",
+      "type": "apex_trigger",
+      "rationale": "Active trigger declares before update.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "apex_trigger:Account:S04_Trigger:after_triggers",
+      "phase": "after_triggers",
+      "type": "apex_trigger",
+      "rationale": "Same trigger declares after update.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_before:Account:S04_Before",
+      "phase": "before_save_flows",
+      "type": "flow_before",
+      "rationale": "Active before-save record-triggered flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_after:Account:S04_After",
+      "phase": "after_save_flows",
+      "type": "flow_after",
+      "rationale": "Active after-save record-triggered flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_after:Account:S04_Draft",
+      "phase": "after_save_flows",
+      "type": "flow_after",
+      "rationale": "Draft (inactive) flow must not be claimed as active automation; correct handling is to exclude it.",
+      "source": "Flow status Draft in snapshot.",
+      "adjudication": "excluded"
+    },
+    {
+      "id": "validation_rule:Account:Account.S04_RuleA",
+      "phase": "custom_validation",
+      "type": "validation_rule",
+      "rationale": "Active validation rule runs in system validation phase on update.",
+      "source": "Validation rule metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "validation_rule:Account:Account.S04_RuleB",
+      "phase": "custom_validation",
+      "type": "validation_rule",
+      "rationale": "Second active validation rule in the same phase.",
+      "source": "Validation rule metadata in snapshot.",
+      "adjudication": "scorable"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apex_trigger:Account:S04_Trigger:before_triggers",
+      "to": "apex_class:S04_Handler",
+      "relationship": "depends_on",
+      "phase": "before_triggers",
+      "detectability": "static-direct",
+      "rationale": "Dependency record names the class.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "apex_trigger:Account:S04_Trigger:after_triggers",
+      "to": "apex_class:S04_Handler",
+      "relationship": "depends_on",
+      "phase": "after_triggers",
+      "detectability": "static-direct",
+      "rationale": "Same dependency reached from after-trigger execution.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "flow_after:Account:S04_After",
+      "to": "object:Case",
+      "relationship": "writes",
+      "phase": "after_save_flows",
+      "detectability": "static-direct",
+      "rationale": "After-save flow creates a Case record; static flow parse names the target object.",
+      "source": "Flow create-records element.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "flow_after:Account:S04_After",
+      "to": "object:Task",
+      "relationship": "writes",
+      "phase": "after_save_flows",
+      "detectability": "static-direct",
+      "rationale": "Same after-save flow also creates a Task record; second create element in the flow.",
+      "source": "Flow create-records element.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "apex_trigger:Account:S04_Trigger:after_triggers",
+      "to": "object:Opportunity",
+      "relationship": "reads",
+      "phase": "after_triggers",
+      "detectability": "runtime-only",
+      "rationale": "Dynamic SOQL string targets Opportunity; static analysis cannot resolve it, so the tool must leave it unresolved rather than guess.",
+      "source": "Author knowledge of dynamic query string.",
+      "adjudication": "scorable"
+    }
+  ]
+}

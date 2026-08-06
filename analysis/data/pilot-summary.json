@@ -1,0 +1,33 @@
+{
+  "runId": "pilot-20260805-03",
+  "orgExecutionStatus": "present",
+  "completion": {
+    "total": 9,
+    "complete": 9,
+    "cleanInvalid": 0,
+    "prototypeFailed": 0,
+    "infrastructureFailed": 0,
+    "error": 0
+  },
+  "detection": {
+    "staticFailures": 3,
+    "staticFailuresFlagged": 3,
+    "riskScenarios": 3,
+    "riskScenariosFlagged": 3
+  },
+  "timing": {
+    "subset": [
+      "cand-declarative-risk",
+      "cand-mixed-risk",
+      "cand-programmatic-risk"
+    ],
+    "note": "single_paired_observation_per_scenario",
+    "leadMedianMs": 6804.876,
+    "leadIqrMs": 997.257
+  },
+  "determinism": {
+    "scenarios": 9,
+    "deterministic": 9
+  },
+  "exceptions": []
+}

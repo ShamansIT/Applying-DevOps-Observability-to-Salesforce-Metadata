@@ -1,0 +1,96 @@
+{
+  "id": "S03",
+  "source": "Author inspection of Account update metadata: trigger and flow bodies, dependency record, and the known dynamic SOQL target (Lead). Salesforce does not define the relative order of two same-phase flows, so no ordering edge is asserted between them.",
+  "nodes": [
+    {
+      "id": "apex_trigger:Account:S03_Trigger:before_triggers",
+      "phase": "before_triggers",
+      "type": "apex_trigger",
+      "rationale": "Active trigger declares before update.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "apex_trigger:Account:S03_Trigger:after_triggers",
+      "phase": "after_triggers",
+      "type": "apex_trigger",
+      "rationale": "Same trigger declares after update.",
+      "source": "Trigger header in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_before:Account:S03_BeforeA",
+      "phase": "before_save_flows",
+      "type": "flow_before",
+      "rationale": "Active before-save record-triggered flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_before:Account:S03_BeforeB",
+      "phase": "before_save_flows",
+      "type": "flow_before",
+      "rationale": "Second active before-save flow; runs in the same phase, relative order to S03_BeforeA is not defined by Salesforce.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "flow_after:Account:S03_AfterReentry",
+      "phase": "after_save_flows",
+      "type": "flow_after",
+      "rationale": "Active after-save flow on Account update.",
+      "source": "Flow metadata in snapshot.",
+      "adjudication": "scorable"
+    },
+    {
+      "id": "validation_rule:Account:Account.S03_Rule",
+      "phase": "custom_validation",
+      "type": "validation_rule",
+      "rationale": "Active validation rule runs in system validation phase on update.",
+      "source": "Validation rule metadata in snapshot.",
+      "adjudication": "scorable"
+    }
+  ],
+  "edges": [
+    {
+      "from": "apex_trigger:Account:S03_Trigger:before_triggers",
+      "to": "apex_class:S03_Handler",
+      "relationship": "depends_on",
+      "phase": "before_triggers",
+      "detectability": "static-direct",
+      "rationale": "Dependency record names the class.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "apex_trigger:Account:S03_Trigger:after_triggers",
+      "to": "apex_class:S03_Handler",
+      "relationship": "depends_on",
+      "phase": "after_triggers",
+      "detectability": "static-direct",
+      "rationale": "Same dependency reached from after-trigger execution.",
+      "source": "MetadataComponentDependency record.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "flow_after:Account:S03_AfterReentry",
+      "to": "object:Account",
+      "relationship": "writes",
+      "phase": "after_save_flows",
+      "detectability": "static-direct",
+      "rationale": "After-save flow updates the triggering Account (re-entry); static flow parse names the target object.",
+      "source": "Flow update-records element.",
+      "adjudication": "scorable"
+    },
+    {
+      "from": "apex_trigger:Account:S03_Trigger:after_triggers",
+      "to": "object:Lead",
+      "relationship": "reads",
+      "phase": "after_triggers",
+      "detectability": "runtime-only",
+      "rationale": "Dynamic SOQL string targets Lead; static analysis cannot resolve it, so the tool must leave it unresolved rather than guess.",
+      "source": "Author knowledge of dynamic query string.",
+      "adjudication": "scorable"
+    }
+  ]
+}

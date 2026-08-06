@@ -1,0 +1,16 @@
+{
+  "id": "S04",
+  "object": "Account",
+  "event": "update",
+  "cluster": "mixed",
+  "depthLimit": 0,
+  "snapshot": "../snapshots/s04-eval.json",
+  "taskPrompt": "For an Account update, list every automation that runs, the order it runs in, and every record each one writes or references.",
+  "startingPoint": "Account object in Setup with source metadata only, before any deployment or execution.",
+  "complexityProfile": { "level": "high", "automationCount": 6, "crossObject": true },
+  "expansionProfile": { "usesExpansion": false, "maxDepth": 0, "notes": "One after-save flow writing two objects; one inactive flow; two validation rules; one dynamic SOQL." },
+  "groundTruthReference": "S04",
+  "inclusionRationale": "Highest-complexity robustness scenario: an after-save flow with two record-create targets, two validation rules, an inactive flow to exclude, and a dynamic Opportunity SOQL to leave unresolved, to stress multi-write parsing, exclusion and uncertainty together.",
+  "versions": { "apiVersion": "67.0", "toolVersion": "0.0.1", "snapshot": "s04-eval" },
+  "notes": "Account update robustness case: trigger before/after with dependency class and dynamic Opportunity SOQL; before-save flow; after-save flow creating Case and Task; one Draft (inactive) flow; two validation rules."
+}

@@ -1,0 +1,16 @@
+{
+  "id": "S03",
+  "object": "Account",
+  "event": "update",
+  "cluster": "mixed",
+  "depthLimit": 0,
+  "snapshot": "../snapshots/s03-eval.json",
+  "taskPrompt": "For an Account update, list every automation that runs, the order it runs in, and every record each one writes or references.",
+  "startingPoint": "Account object in Setup with source metadata only, before any deployment or execution.",
+  "complexityProfile": { "level": "high", "automationCount": 5, "crossObject": true },
+  "expansionProfile": { "usesExpansion": false, "maxDepth": 0, "notes": "Two co-phase before-save flows (undefined relative order) and a same-object re-entry write." },
+  "groundTruthReference": "S03",
+  "inclusionRationale": "Robustness scenario: two active before-save flows whose relative order Salesforce does not define, plus an after-save flow that re-updates the triggering Account (re-entry), and a dynamic Lead SOQL, to exercise multiplicity, re-entry risk and unresolved handling.",
+  "versions": { "apiVersion": "67.0", "toolVersion": "0.0.1", "snapshot": "s03-eval" },
+  "notes": "Account update robustness case: trigger before/after with a dependency class and a dynamic Lead SOQL; two before-save flows; one after-save flow re-updating Account; one validation rule."
+}

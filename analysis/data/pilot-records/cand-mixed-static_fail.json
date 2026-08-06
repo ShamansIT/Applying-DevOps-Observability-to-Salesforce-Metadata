@@ -1,0 +1,119 @@
+{
+  "scenarioId": "cand-mixed-static_fail",
+  "status": "complete",
+  "cleanChecksum": "7b714178cbc7c5363b298e9cf00440d83a69f2e12bd8a7e9fea2a431b0aae0fb",
+  "mutatedChecksum": "aa4e9275d1a2095285b53449cb3b73f74e0ed6aa378b351cd0892fb2a53efd6f",
+  "identicalBytes": true,
+  "cleanOutcome": "pass",
+  "mutatedOutcome": "fail",
+  "mutatedFailureClass": "missing_dependency",
+  "prototype": {
+    "predictionCategory": "blocking_finding",
+    "actionableFinding": {
+      "category": "blocking_finding",
+      "component": "apex_class:Mix_Handler",
+      "reason": "apex_trigger:Account:Mix_Trigger:before_triggers references apex_class:Mix_Handler, which is not present in the project",
+      "scope": "confirmed"
+    },
+    "affectedComponents": [
+      "apex_class:Mix_Handler"
+    ],
+    "stageEvents": [
+      {
+        "stage": "L1",
+        "ms": 0.32709999999497086
+      },
+      {
+        "stage": "L2",
+        "ms": 0.05200000000331784
+      },
+      {
+        "stage": "L3",
+        "ms": 0.9807000000000698
+      },
+      {
+        "stage": "L4",
+        "ms": 0.10020000000076834
+      }
+    ],
+    "failed": false
+  },
+  "prototypeDeterministic": true,
+  "prototypeRepetitionHashes": [
+    "5f3a6ce6049eedb903bcb60ff6189effdca20028965f96805103a264eee4233e",
+    "5f3a6ce6049eedb903bcb60ff6189effdca20028965f96805103a264eee4233e",
+    "5f3a6ce6049eedb903bcb60ff6189effdca20028965f96805103a264eee4233e"
+  ],
+  "prototypeMismatch": null,
+  "oracleObservation": {
+    "policyVersion": 1,
+    "testLevel": "NoTestRun",
+    "dryRun": true,
+    "command": "sf project deploy start --dry-run --source-dir force-app --test-level NoTestRun --target-org pilot-20260805-03-org --json",
+    "jobId": "0AfAq00000iy05TKAQ",
+    "pollCount": 0,
+    "finalStatus": "Failed",
+    "outcome": "fail",
+    "timedOut": false
+  },
+  "cliCalls": [
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 0,
+      "stdout": "{\n  \"status\": 0,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:03:39.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:03:34.000Z\",\n    \"details\": {\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"ApexClass\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:38.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"classes/Mix_Handler.cls\",\n          \"fullName\": \"Mix_Handler\",\n          \"id\": \"01pAq00000GC7kXIAT\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"ApexTrigger\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:39.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"triggers/Mix_Trigger.trigger\",\n          \"fullName\": \"Mix_Trigger\",\n          \"id\": \"01qAq000008tX1xIAE\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"ValidationRule\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:39.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"objects/Account.object\",\n          \"fullName\": \"Account.Mix_Require_Name\",\n          \"id\": \"03dAq000002qx1FIAQ\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"Flow\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:39.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"flows/Mix_Flow.flow\",\n          \"fullName\": \"Mix_Flow\",\n          \"id\": \"301Aq000018iDxWIAU\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:03:39.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      },\n      \"componentFailures\": []\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy7V7KAI\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:03:39.000Z\",\n    \"numberComponentErrors\": 0,\n    \"numberComponentsDeployed\": 4,\n    \"numberComponentsTotal\": 4,\n    \"numberFiles\": \"11\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:03:34.000Z\",\n    \"status\": \"Succeeded\",\n    \"success\": true,\n    \"zipSize\": 2594,\n    \"files\": [\n      {\n        \"fullName\": \"Mix_Handler\",\n        \"type\": \"ApexClass\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\classes\\\\Mix_Handler.cls\"\n      },\n      {\n        \"fullName\": \"Mix_Handler\",\n        \"type\": \"ApexClass\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\classes\\\\Mix_Handler.cls-meta.xml\"\n      },\n      {\n        \"fullName\": \"Mix_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\triggers\\\\Mix_Trigger.trigger\"\n      },\n      {\n        \"fullName\": \"Mix_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\triggers\\\\Mix_Trigger.trigger-meta.xml\"\n      },\n      {\n        \"fullName\": \"Mix_Flow\",\n        \"type\": \"Flow\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\flows\\\\Mix_Flow.flow-meta.xml\"\n      },\n      {\n        \"fullName\": \"Account.Mix_Require_Name\",\n        \"type\": \"ValidationRule\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-clean-8il3jR\\\\force-app\\\\main\\\\default\\\\objects\\\\Account\\\\validationRules\\\\Mix_Require_Name.validationRule-meta.xml\"\n      }\n    ],\n    \"zipFileCount\": 7,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy7V7KAI%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 1,
+      "stdout": "{\n  \"status\": 1,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:03:47.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:03:43.000Z\",\n    \"details\": {\n      \"componentFailures\": [\n        {\n          \"changed\": false,\n          \"columnNumber\": 5,\n          \"componentType\": \"ApexTrigger\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:03:46.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"triggers/Mix_Trigger.trigger\",\n          \"fullName\": \"Mix_Trigger\",\n          \"lineNumber\": 2,\n          \"problem\": \"Variable does not exist: Mix_Handler\",\n          \"problemType\": \"Error\",\n          \"success\": false\n        }\n      ],\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"ValidationRule\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:47.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"objects/Account.object\",\n          \"fullName\": \"Account.Mix_Require_Name\",\n          \"id\": \"03dAq000002qx4TIAQ\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"Flow\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:47.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"flows/Mix_Flow.flow\",\n          \"fullName\": \"Mix_Flow\",\n          \"id\": \"301Aq000018ihsMIAQ\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:03:47.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      }\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy05TKAQ\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:03:47.000Z\",\n    \"numberComponentErrors\": 1,\n    \"numberComponentsDeployed\": 2,\n    \"numberComponentsTotal\": 3,\n    \"numberFiles\": \"8\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:03:43.000Z\",\n    \"status\": \"Failed\",\n    \"success\": false,\n    \"zipSize\": 1975,\n    \"files\": [\n      {\n        \"fullName\": \"Mix_Trigger\",\n        \"type\": \"ApexTrigger\",\n        \"state\": \"Failed\",\n        \"problemType\": \"Error\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-mutated-Pxmcbd\\\\force-app\\\\main\\\\default\\\\triggers\\\\Mix_Trigger.trigger\",\n        \"lineNumber\": 2,\n        \"columnNumber\": 5,\n        \"error\": \"Variable does not exist: Mix_Handler (2:5)\"\n      },\n      {\n        \"fullName\": \"Mix_Flow\",\n        \"type\": \"Flow\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-mutated-Pxmcbd\\\\force-app\\\\main\\\\default\\\\flows\\\\Mix_Flow.flow-meta.xml\"\n      },\n      {\n        \"fullName\": \"Account.Mix_Require_Name\",\n        \"type\": \"ValidationRule\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-mixed-static_fail-mutated-Pxmcbd\\\\force-app\\\\main\\\\default\\\\objects\\\\Account\\\\validationRules\\\\Mix_Require_Name.validationRule-meta.xml\"\n      }\n    ],\n    \"zipFileCount\": 5,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy05TKAQ%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    }
+  ],
+  "pollingEvents": [],
+  "timing": {
+    "prototypeTtfafMs": 5.133,
+    "baselineTtfafMs": 7910.965,
+    "oracleFirstActionableMs": 7910.965,
+    "oracleCompletedMs": 7910.965,
+    "leadTimeMs": 7905.832,
+    "prototypeFirst": true
+  },
+  "designExpectation": {
+    "cleanValidation": "pass",
+    "mutatedValidation": "fail",
+    "failureClass": "missing_dependency",
+    "prototype": "blocking"
+  },
+  "workspaceCleanup": {
+    "ok": true
+  },
+  "criteriaMet": true,
+  "reasons": []
+}

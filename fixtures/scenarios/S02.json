@@ -1,0 +1,16 @@
+{
+  "id": "S02",
+  "object": "Account",
+  "event": "update",
+  "cluster": "mixed",
+  "depthLimit": 0,
+  "snapshot": "../snapshots/s02-eval.json",
+  "taskPrompt": "For an Account update, list every automation that runs, the order it runs in, and every record each one writes or references.",
+  "startingPoint": "Account object in Setup with source metadata only, before any deployment or execution.",
+  "complexityProfile": { "level": "high", "automationCount": 5, "crossObject": true },
+  "expansionProfile": { "usesExpansion": false, "maxDepth": 0, "notes": "Single-level references; one inactive flow and one dynamic SOQL." },
+  "groundTruthReference": "S02",
+  "inclusionRationale": "Robustness scenario: adds an inactive (Draft) flow the tool must exclude and a dynamic SOQL targeting Opportunity the tool must leave unresolved, alongside a static cross-object write to Case, to exercise the uncertainty regime rather than only fully-resolvable structure.",
+  "versions": { "apiVersion": "67.0", "toolVersion": "0.0.1", "snapshot": "s02-eval" },
+  "notes": "Account update robustness case: trigger split before/after with a dependency class and a dynamic Opportunity SOQL; before-save and after-save flows; one Draft (inactive) flow; one validation rule."
+}

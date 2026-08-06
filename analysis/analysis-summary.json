@@ -1,0 +1,21 @@
+{
+  "n_scenarios": 9,
+  "reconstruction_all_deterministic": true,
+  "pilot_all_deterministic": true,
+  "pilot_all_identical_bytes": true,
+  "pilot_all_criteria_met": true,
+  "shiftlead_median_ms": 6804.876,
+  "shiftlead_iqr_ms": 1857.719,
+  "prototype_ttfaf_median_ms": 6.537,
+  "salesforce_ttfaf_median_ms": 6812.548,
+  "speedup_x_median": 1042.1520575187394,
+  "static_failures_flagged": 3,
+  "risk_scenarios_flagged": 3,
+  "risk_invisible_to_salesforce": 3,
+  "speedup_ratio_median": 1006.7091093802912,
+  "speedup_ratio_min": 428.34442849452716,
+  "speedup_ratio_max": 1799.4407423971377,
+  "ttfaf_pairs_prototype_faster": "9/9",
+  "ttfaf_sign_test_p_two_sided": 0.003906,
+  "ttfaf_sign_test_note": "exact paired sign test; prototype TTFAF < Salesforce TTFAF in all pairs"
+}

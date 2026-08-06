@@ -1,0 +1,119 @@
+{
+  "scenarioId": "cand-declarative-risk",
+  "status": "complete",
+  "cleanChecksum": "5034f2653484628bbc314b519f60e47372c39f14f41c00a0a540ed2e34b78155",
+  "mutatedChecksum": "21b4d30a0ca637147ad1528d9662671b898869a843851a4e64504981d73c5f1b",
+  "identicalBytes": true,
+  "cleanOutcome": "pass",
+  "mutatedOutcome": "pass",
+  "mutatedFailureClass": "none",
+  "prototype": {
+    "predictionCategory": "material_warning",
+    "actionableFinding": {
+      "category": "material_warning",
+      "component": "flow_after:Account:Dec_Reentry",
+      "reason": "Recursion / re-entry hint",
+      "scope": "risk"
+    },
+    "affectedComponents": [
+      "flow_after:Account:Dec_Reentry"
+    ],
+    "stageEvents": [
+      {
+        "stage": "L1",
+        "ms": 0.11609999999927823
+      },
+      {
+        "stage": "L2",
+        "ms": 0.10199999999895226
+      },
+      {
+        "stage": "L3",
+        "ms": 1.387299999994866
+      },
+      {
+        "stage": "L4",
+        "ms": 0.047200000000884756
+      }
+    ],
+    "failed": false
+  },
+  "prototypeDeterministic": true,
+  "prototypeRepetitionHashes": [
+    "90aa3667aa637d7345b85a13785b290c5e08a872743b713a9833a311021dbabc",
+    "90aa3667aa637d7345b85a13785b290c5e08a872743b713a9833a311021dbabc",
+    "90aa3667aa637d7345b85a13785b290c5e08a872743b713a9833a311021dbabc"
+  ],
+  "prototypeMismatch": null,
+  "oracleObservation": {
+    "policyVersion": 1,
+    "testLevel": "NoTestRun",
+    "dryRun": true,
+    "command": "sf project deploy start --dry-run --source-dir force-app --test-level NoTestRun --target-org pilot-20260805-03-org --json",
+    "jobId": "0AfAq00000iy7TVKAY",
+    "pollCount": 0,
+    "finalStatus": "Succeeded",
+    "outcome": "pass",
+    "timedOut": false
+  },
+  "cliCalls": [
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 0,
+      "stdout": "{\n  \"status\": 0,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:03:23.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:03:21.000Z\",\n    \"details\": {\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"Flow\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:23.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"flows/Dec_Reentry.flow\",\n          \"fullName\": \"Dec_Reentry\",\n          \"id\": \"301Aq000018j7LBIAY\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:03:23.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      },\n      \"componentFailures\": []\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy7RtKAI\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:03:23.000Z\",\n    \"numberComponentErrors\": 0,\n    \"numberComponentsDeployed\": 1,\n    \"numberComponentsTotal\": 1,\n    \"numberFiles\": \"3\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:03:21.000Z\",\n    \"status\": \"Succeeded\",\n    \"success\": true,\n    \"zipSize\": 912,\n    \"files\": [\n      {\n        \"fullName\": \"Dec_Reentry\",\n        \"type\": \"Flow\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-declarative-risk-clean-ZdfOr7\\\\force-app\\\\main\\\\default\\\\flows\\\\Dec_Reentry.flow-meta.xml\"\n      }\n    ],\n    \"zipFileCount\": 2,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy7RtKAI%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    },
+    {
+      "file": "sf",
+      "args": [
+        "project",
+        "deploy",
+        "start",
+        "--dry-run",
+        "--source-dir",
+        "force-app",
+        "--test-level",
+        "NoTestRun",
+        "--target-org",
+        "pilot-20260805-03-org",
+        "--json"
+      ],
+      "code": 0,
+      "stdout": "{\n  \"status\": 0,\n  \"result\": {\n    \"checkOnly\": true,\n    \"completedDate\": \"2026-08-06T11:03:30.000Z\",\n    \"createdBy\": \"005Aq00000hmKK1\",\n    \"createdByName\": \"User User\",\n    \"createdDate\": \"2026-08-06T11:03:27.000Z\",\n    \"details\": {\n      \"componentSuccesses\": [\n        {\n          \"changed\": true,\n          \"componentType\": \"Flow\",\n          \"created\": true,\n          \"createdDate\": \"2026-08-06T11:03:30.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"flows/Dec_Reentry.flow\",\n          \"fullName\": \"Dec_Reentry\",\n          \"id\": \"301Aq000018irzbIAA\",\n          \"success\": true\n        },\n        {\n          \"changed\": true,\n          \"componentType\": \"\",\n          \"created\": false,\n          \"createdDate\": \"2026-08-06T11:03:30.000Z\",\n          \"deleted\": false,\n          \"fileName\": \"package.xml\",\n          \"fullName\": \"package.xml\",\n          \"success\": true\n        }\n      ],\n      \"runTestResult\": {\n        \"numFailures\": 0,\n        \"numTestsRun\": 0,\n        \"totalTime\": 0,\n        \"codeCoverage\": [],\n        \"codeCoverageWarnings\": [],\n        \"failures\": [],\n        \"flowCoverage\": [],\n        \"flowCoverageWarnings\": [],\n        \"successes\": []\n      },\n      \"componentFailures\": []\n    },\n    \"done\": true,\n    \"id\": \"0AfAq00000iy7TVKAY\",\n    \"ignoreWarnings\": false,\n    \"lastModifiedDate\": \"2026-08-06T11:03:30.000Z\",\n    \"numberComponentErrors\": 0,\n    \"numberComponentsDeployed\": 1,\n    \"numberComponentsTotal\": 1,\n    \"numberFiles\": \"3\",\n    \"numberTestErrors\": 0,\n    \"numberTestsCompleted\": 0,\n    \"numberTestsTotal\": 0,\n    \"rollbackOnError\": true,\n    \"runTestsEnabled\": false,\n    \"startDate\": \"2026-08-06T11:03:27.000Z\",\n    \"status\": \"Succeeded\",\n    \"success\": true,\n    \"zipSize\": 949,\n    \"files\": [\n      {\n        \"fullName\": \"Dec_Reentry\",\n        \"type\": \"Flow\",\n        \"state\": \"Created\",\n        \"filePath\": \"C:\\\\Users\\\\finel\\\\AppData\\\\Local\\\\Temp\\\\cand-declarative-risk-mutated-pJyfgU\\\\force-app\\\\main\\\\default\\\\flows\\\\Dec_Reentry.flow-meta.xml\"\n      }\n    ],\n    \"zipFileCount\": 2,\n    \"deployUrl\": \"https://inspiration-velocity-2746-dev-ed.scratch.my.salesforce.com/lightning/setup/DeployStatus/page?address=%2Fchangemgmt%2FmonitorDeploymentsDetails.apexp%3FasyncId%3D0AfAq00000iy7TVKAY%26retURL%3D%252Fchangemgmt%252FmonitorDeployment.apexp\"\n  },\n  \"warnings\": []\n}\n",
+      "stderr": ""
+    }
+  ],
+  "pollingEvents": [],
+  "timing": {
+    "prototypeTtfafMs": 7.672,
+    "baselineTtfafMs": 6812.548,
+    "oracleFirstActionableMs": 6812.548,
+    "oracleCompletedMs": 6812.548,
+    "leadTimeMs": 6804.876,
+    "prototypeFirst": true
+  },
+  "designExpectation": {
+    "cleanValidation": "pass",
+    "mutatedValidation": "pass",
+    "failureClass": "none",
+    "prototype": "risk_or_unresolved"
+  },
+  "workspaceCleanup": {
+    "ok": true
+  },
+  "criteriaMet": true,
+  "reasons": []
+}

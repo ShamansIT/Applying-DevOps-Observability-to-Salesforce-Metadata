@@ -1,0 +1,121 @@
+{
+  "n": 9,
+  "metrics": {
+    "nodePrecision": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "nodeRecall": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "precision": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 0.5,
+      "ci95High": 1
+    },
+    "recall": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "f1": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 0.667,
+      "ci95High": 1
+    },
+    "relationshipAccuracy": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "orderedPathCoverage": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "phaseAccuracy": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "boundaryAccuracy": {
+      "n": 9,
+      "median": 1,
+      "q1": 1,
+      "q3": 1,
+      "iqr": 0,
+      "ci95Low": 1,
+      "ci95High": 1
+    },
+    "finalEdgeNoiseRate": {
+      "n": 9,
+      "median": 0,
+      "q1": 0,
+      "q3": 0,
+      "iqr": 0,
+      "ci95Low": 0,
+      "ci95High": 0
+    },
+    "finalExpectedEdgeOmissionRate": {
+      "n": 9,
+      "median": 0,
+      "q1": 0,
+      "q3": 0,
+      "iqr": 0,
+      "ci95Low": 0,
+      "ci95High": 0
+    }
+  },
+  "determinism": {
+    "n": 9,
+    "deterministic": 9,
+    "allDeterministic": true
+  },
+  "latency": {
+    "n": 9,
+    "medianMs": 0.781,
+    "p95Ms": 6.409,
+    "maxMs": 9.111
+  },
+  "hypotheses": "not_run",
+  "procedure": {
+    "seed": 20260801,
+    "resamples": 2000,
+    "ci": 0.95
+  }
+}
